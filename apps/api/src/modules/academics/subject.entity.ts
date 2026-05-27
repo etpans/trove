@@ -1,14 +1,16 @@
-@Entity()
-export class Subject {
-  @PrimaryGeneratedColumn()
-  id: number;
+import { Entity, Column, ManyToOne, OneToMany } from 'typeorm';
+import { AbstractEntity } from '../common/base.entity';
+import { ClassEntity } from './class.entity';
+import { Post } from '../notes/post.entity';
 
+@Entity()
+export class Subject extends AbstractEntity {
   @Column()
   name: string;
 
-  @ManyToOne(() => Class, (cls) => cls.subjects)
-  class: Class;
+  @ManyToOne(() => ClassEntity, (c) => c.subjects, { nullable: true, onDelete: 'SET NULL' })
+  classEntity?: ClassEntity;
 
-  @OneToMany(() => Post, (post) => post.subject)
-  posts: Post[];
+  @OneToMany(() => Post, (p) => p.subject)
+  posts?: Post[];
 }

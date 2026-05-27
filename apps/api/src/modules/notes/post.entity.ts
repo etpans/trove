@@ -1,40 +1,36 @@
-import {
-  Entity,
-  PrimaryGeneratedColumn,
-  Column,
-  OneToMany,
-  ManyToOne,
-} from 'typeorm';
-import { Class } from '../classes/class.entity';
-import { Posts } from '../posts/posts.entity';
+import { Entity, Column, OneToMany, ManyToOne } from 'typeorm';
+import { AbstractEntity } from '../common/base.entity';
+import { Attachment } from './attachment.entity';
+import { Teacher } from '../teachers/teacher.entity';
+import { Student } from '../students/student.entity';
+import { Subject } from '../academics/subject.entity';
 
 @Entity()
-export class Post {
-  // @PrimaryGeneratedColumn()
-  @PrimaryColumn()
-  id: number;
-
+export class Post extends AbstractEntity {
   @Column()
-  type: 'text' | 'image' | 'video';
+  type: string;
 
   @Column({ nullable: true })
   textContent?: string;
 
-  @Column({ nullable: true })
-  imageUrl?: string;
+  @OneToMany(() => Attachment, (a) => a.post, { cascade: true })
+  attachments?: Attachment[];
 
-  @Column({ nullable: true })
-  videoUrl?: string;
+  @ManyToOne(() => Teacher, (teacher) => teacher.posts, {
+    nullable: true,
+    onDelete: 'SET NULL',
+  })
+  teacher?: Teacher;
 
-  @ManyToOne(() => Teacher, (teacher) => teacher.posts)
-  teacher: Teacher;
+  @ManyToOne(() => Student, (student) => student.posts, {
+    nullable: true,
+    onDelete: 'SET NULL',
+  })
+  student?: Student;
 
-  @ManyToOne(() => Student, (student) => student.posts)
-  student: Student;
-
-  @ManyToOne(() => Subject, (subject) => subject.posts)
-  subject: Subject;
-
-  @CreateDateColumn()
-  createdAt: Date;
+  @ManyToOne(() => Subject, (subject) => subject.posts, {
+    nullable: true,
+    onDelete: 'SET NULL',
+  })
+  subject?: Subject;
 }

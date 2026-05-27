@@ -1,31 +1,20 @@
-import {
-  Entity,
-  PrimaryGeneratedColumn,
-  Column,
-  OneToMany,
-  ManyToOne,
-} from 'typeorm';
+import { Entity, Column, ManyToOne, OneToMany } from 'typeorm';
+import { AbstractEntity } from '../common/base.entity';
 import { Teacher } from '../teachers/teacher.entity';
 import { Student } from '../students/student.entity';
-import { Subject } from '../subjects/subject.entity';
+import { Subject } from './subject.entity';
 
 @Entity()
-export class Class {
-  // @PrimaryGeneratedColumn()
-  @PrimaryColumn()
-  id: number;
-
+export class ClassEntity extends AbstractEntity {
   @Column()
   name: string;
 
-  @ManyToOne(() => Teacher, (teacher) => teacher.classes)
-  teacher: Teacher;
+  @ManyToOne(() => Teacher, (t) => t.classes, { nullable: true, onDelete: 'SET NULL' })
+  teacher?: Teacher;
 
-  @OneToMany(() => Student, (student) => student.class)
-  students: Student[];
+  @OneToMany(() => Student, (s) => s.classEntity)
+  students?: Student[];
 
-  @OneToMany(() => Subject, (subject) => subject.class)
-  subjects: Subject[];
-  // @CreateDateColumn()
-  // createdAt: Date;
+  @OneToMany(() => Subject, (sub) => sub.classEntity)
+  subjects?: Subject[];
 }

@@ -1,40 +1,28 @@
-import {
-  Entity,
-  PrimaryGeneratedColumn,
-  Column,
-  OneToMany,
-  ManyToOne,
-} from 'typeorm';
-import { Class } from '../classes/class.entity';
-import { Posts } from '../posts/posts.entity';
+import { Entity, Column, ManyToOne, OneToMany } from 'typeorm';
+import { AbstractEntity } from '../common/base.entity';
+import { ClassEntity } from '../academics/class.entity';
+import { Post } from '../notes/post.entity';
 
 @Entity()
-export class Student {
-  // @PrimaryGeneratedColumn()
-  @PrimaryColumn()
-  id: number;
-
+export class Student extends AbstractEntity {
   @Column()
   firstName: string;
 
-  @Column()
-  middleName: string;
+  @Column({ nullable: true })
+  middleName?: string;
 
   @Column()
   lastName: string;
 
-  @Column()
-  teacher: string;
-
-  @ManyToOne(() => Class, (cls) => cls.students)
-  classes: Class;
+  @ManyToOne(() => ClassEntity, (cls) => cls.students, {
+    nullable: true,
+    onDelete: 'SET NULL',
+  })
+  classEntity?: ClassEntity;
 
   @OneToMany(() => Post, (post) => post.student)
-  posts: Post[];
+  posts?: Post[];
 
   @Column()
   grade: number;
-
-  // @CreateDateColumn()
-  // createdAt: Date;
 }
