@@ -6,7 +6,7 @@ import { BaseController } from '../common/base.controller';
 
 @Controller('notes')
 export class NotesController extends BaseController<PostEntity> {
-  constructor(private readonly service: NotesService) {
+  constructor(protected readonly service: NotesService) {
     super(service);
   }
 

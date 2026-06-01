@@ -5,7 +5,7 @@ import { BaseController } from '../common/base.controller';
 
 @Controller('teachers')
 export class TeachersController extends BaseController<Teacher> {
-  constructor(private readonly service: TeachersService) {
+  constructor(protected readonly service: TeachersService) {
     super(service);
   }
 }
