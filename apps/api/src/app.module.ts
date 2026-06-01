@@ -1,8 +1,14 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-// import { AppController } from './app.controller';
-// import { AppService } from './app.service';
+import { AppController } from './app.controller';
+import { AppService } from './app.service';
+
+import { TeachersModule } from './modules/teachers/teacher.module';
+import { StudentsModule } from './modules/students/student.module';
+import { NotesModule } from './modules/notes/notes.module';
+import { AcademicsModule } from './modules/academics/academics.module';
+// import { AuthModule } from './modules/auth/auth.module';
 
 @Module({
   imports: [
@@ -20,8 +26,14 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
         synchronize: true, // turn off in production
       }),
     }),
+
+    TeachersModule,
+    StudentsModule,
+    NotesModule,
+    AcademicsModule,
+    // AuthModule,
   ],
-  // controllers: [AppController],
-  // providers: [AppService],
+  controllers: [AppController],
+  providers: [AppService],
 })
 export class AppModule {}
