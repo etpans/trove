@@ -1,7 +1,12 @@
-import { Injectable } from '@nestjs/common';
+import {
+  Injectable,
+  ConflictException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from './user.entity';
+import { JwtService } from '@nestjs/jwt';
 import bcrypt from 'bcrypt';
 
 @Injectable()
@@ -9,6 +14,7 @@ export class AuthService {
   constructor(
     @InjectRepository(User)
     private readonly repo: Repository<User>,
+    private readonly jwtService: JwtService,
   ) {}
 
   async createUser(data: Partial<User>) {
@@ -24,7 +30,7 @@ export class AuthService {
       throw new ConflictException('Email already exists');
     }
 
-    const rounds = 10;
+    const rounds = Number(process.env.BCRYPT_ROUNDS ?? 10);
 
     const user = this.repo.create({
       ...data,
@@ -55,5 +61,11 @@ export class AuthService {
     if (!isMatch) return null;
 
     return user;
+  }
+
+  async login(user: User) {
+    const payload = { sub: user.id, email: user.email, role: user.role };
+    const access_token = this.jwtService.sign(payload);
+    return { access_token };
   }
 }

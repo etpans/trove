@@ -15,7 +15,7 @@ export class AuthController {
   async login(@Body() body: { email: string; password: string }) {
     const user = await this.service.validateUser(body.email, body.password);
     if (!user) return { ok: false, message: 'Invalid credentials' };
-    // Return user for now; TODO: return a JWT
-    return { ok: true, user };
+    const token = await this.service.login(user);
+    return { ok: true, token };
   }
 }
