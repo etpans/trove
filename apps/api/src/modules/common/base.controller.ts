@@ -1,8 +1,8 @@
 import { Body, Delete, Get, Param, Post, Put, UseGuards } from '@nestjs/common';
 import { BaseService } from './base.service';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+// import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
-@UseGuards(JwtAuthGuard)
+// @UseGuards(JwtAuthGuard)
 export abstract class BaseController<T extends { id: number }> {
   constructor(protected readonly service: BaseService<T>) {}
 

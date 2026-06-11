@@ -1,21 +1,16 @@
-import { Entity, Column, OneToOne } from 'typeorm';
-import { AbstractEntity } from '../common/base.entity';
-import { Teacher } from '../teachers/teacher.entity';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
 
 @Entity()
-export class User extends AbstractEntity {
+export class User {
+  @PrimaryGeneratedColumn()
+  id: number;
+
   @Column({ unique: true })
   email: string;
 
   @Column({ select: false })
   password: string;
 
-  @Column()
-  role: string;
-
-  @OneToOne(() => Teacher, (teacher) => teacher.user)
-  teacher: Teacher;
-
-  @Column()
-  isVerified: boolean;
+  @CreateDateColumn()
+  createdAt: Date;
 }

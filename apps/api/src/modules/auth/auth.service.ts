@@ -1,71 +1,56 @@
 import {
   Injectable,
   ConflictException,
-  BadRequestException,
+  UnauthorizedException,
 } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
+import * as bcrypt from 'bcrypt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from './user.entity';
-import { JwtService } from '@nestjs/jwt';
-import bcrypt from 'bcrypt';
+import { RegisterDto } from './dto/register.dto';
 
 @Injectable()
 export class AuthService {
   constructor(
     @InjectRepository(User)
-    private readonly repo: Repository<User>,
+    private readonly userRepository: Repository<User>,
     private readonly jwtService: JwtService,
   ) {}
 
-  async createUser(data: Partial<User>) {
-    if (!data.password) {
-      throw new Error('Password required');
-    }
+  async register(dto: RegisterDto) {
+    const exists = await this.userRepository.existsBy({ email: dto.email });
+    if (exists) throw new ConflictException('Email already in use');
 
-    const existing = await this.repo.findOne({
-      where: { email: data.email },
+    const passwordHash = await bcrypt.hash(dto.password, 10);
+    const user = await this.userRepository.save({
+      email: dto.email,
+      password: passwordHash,
     });
-
-    if (existing) {
-      throw new ConflictException('Email already exists');
-    }
-
-    const rounds = Number(process.env.BCRYPT_ROUNDS ?? 10);
-
-    const user = this.repo.create({
-      ...data,
-      password: await bcrypt.hash(data.password, rounds),
-      isVerified: false,
-    });
-
-    const savedUser = await this.repo.save(user);
-
-    const { password, ...result } = savedUser;
+    const { password: _, ...result } = user;
     return result;
   }
 
-  findByEmail(email: string) {
-    return this.repo.findOneBy({ email });
-  }
-
-  findById(id: number) {
-    return this.repo.findOneBy({ id });
-  }
-
   async validateUser(email: string, password: string) {
-    const user = await this.findByEmail(email);
+    const user = await this.userRepository.findOne({
+      where: { email },
+      select: {
+        id: true,
+        email: true,
+        password: true,
+      },
+    });
+    if (!user) throw new UnauthorizedException();
 
-    if (!user.isVerified) return null;
+    const valid = await bcrypt.compare(password, user.password);
+    if (!valid) throw new UnauthorizedException();
 
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return null;
-
-    return user;
+    const { password: _, ...result } = user as any;
+    return result;
   }
 
-  async login(user: User) {
-    const payload = { sub: user.id, email: user.email, role: user.role };
-    const access_token = this.jwtService.sign(payload);
-    return { access_token };
+  async login(user: any) {
+    const payload = { sub: user.id, email: user.email };
+    return { access_token: this.jwtService.sign(payload) };
   }
 }

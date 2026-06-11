@@ -4,6 +4,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 
+import { User } from './modules/auth/user.entity';
 import { TeachersModule } from './modules/teachers/teacher.module';
 import { StudentsModule } from './modules/students/student.module';
 import { NotesModule } from './modules/notes/notes.module';
@@ -21,19 +22,16 @@ import { AuthModule } from './modules/auth/auth.module';
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
         type: 'postgres',
-        url: config.get<string>('DATABASE_URL'),
-        autoLoadEntities: true,
+        host: config.get('DB_HOST'),
+        port: config.get<number>('DB_PORT'),
+        username: config.get('DB_USER'),
+        password: config.get('DB_PASS'),
+        database: config.get('DB_NAME'),
+        entities: [User],
         synchronize: true, // turn off in production
       }),
     }),
-
-    TeachersModule,
-    StudentsModule,
-    NotesModule,
-    AcademicsModule,
     AuthModule,
   ],
-  controllers: [AppController],
-  providers: [AppService],
 })
 export class AppModule {}
