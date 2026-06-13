@@ -1,10 +1,20 @@
-import { IsEmail, IsString, MinLength, MaxLength } from 'class-validator';
+import { IsEmail, IsString, IsNotEmpty, MinLength, MaxLength, Matches } from 'class-validator';
 import { Transform } from 'class-transformer';
 
 export class RegisterDto {
   @IsEmail()
   @Transform(({ value }) => value.toLowerCase().trim())
   email: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @MinLength(2)
+  @MaxLength(30)
+  @Matches(/^[\p{L}\p{N} _-]+$/u, {
+    message:
+      'Display name contains invalid characters',
+  })
+  displayName: string;
 
   @IsString()
   @MinLength(8)

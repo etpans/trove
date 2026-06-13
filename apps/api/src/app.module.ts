@@ -3,8 +3,11 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
 
 import { User } from './modules/auth/user.entity';
+import { RefreshToken } from './modules/auth/refresh-token.entity';
 import { TeachersModule } from './modules/teachers/teacher.module';
 import { StudentsModule } from './modules/students/student.module';
 import { NotesModule } from './modules/notes/notes.module';
@@ -15,6 +18,8 @@ import { AuthModule } from './modules/auth/auth.module';
   imports: [
     // load .env files
     ConfigModule.forRoot({ isGlobal: true }),
+
+    ThrottlerModule.forRoot([{ ttl: 60000, limit: 20 }]),
 
     // connect to postgresql
     TypeOrmModule.forRootAsync({
@@ -27,11 +32,17 @@ import { AuthModule } from './modules/auth/auth.module';
         username: config.get('DB_USER'),
         password: config.get('DB_PASS'),
         database: config.get('DB_NAME'),
-        entities: [User],
+        entities: [User, RefreshToken],
         synchronize: true, // turn off in production
       }),
     }),
     AuthModule,
+  ],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
   ],
 })
 export class AppModule {}
