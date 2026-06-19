@@ -8,10 +8,10 @@ import { APP_GUARD } from '@nestjs/core';
 
 import { User } from './modules/auth/user.entity';
 import { RefreshToken } from './modules/auth/refresh-token.entity';
-import { TeachersModule } from './modules/teachers/teacher.module';
-import { StudentsModule } from './modules/students/student.module';
-import { NotesModule } from './modules/notes/notes.module';
-import { AcademicsModule } from './modules/academics/academics.module';
+// import { TeachersModule } from './modules/teachers/teacher.module';
+// import { StudentsModule } from './modules/students/student.module';
+// import { NotesModule } from './modules/notes/notes.module';
+// import { AcademicsModule } from './modules/academics/academics.module';
 import { AuthModule } from './modules/auth/auth.module';
 
 @Module({
