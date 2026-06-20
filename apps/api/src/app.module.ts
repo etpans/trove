@@ -7,12 +7,16 @@ import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 
 import { User } from './modules/auth/user.entity';
+import { Subject } from './modules/subjects/entities/subject.entity';
+import { Class } from './modules/classes/entities/class.entity';
 import { RefreshToken } from './modules/auth/refresh-token.entity';
 // import { TeachersModule } from './modules/teachers/teacher.module';
 // import { StudentsModule } from './modules/students/student.module';
 // import { NotesModule } from './modules/notes/notes.module';
 // import { AcademicsModule } from './modules/academics/academics.module';
 import { AuthModule } from './modules/auth/auth.module';
+// import { StudentsModule } from './students/students.module';
+import { SubjectsModule } from './modules/subjects/subjects.module';
 
 @Module({
   imports: [
@@ -32,11 +36,12 @@ import { AuthModule } from './modules/auth/auth.module';
         username: config.get('DB_USER'),
         password: config.get('DB_PASS'),
         database: config.get('DB_NAME'),
-        entities: [User, RefreshToken],
+        entities: [User, RefreshToken, Subject, Class],
         synchronize: true, // turn off in production
       }),
     }),
     AuthModule,
+    SubjectsModule,
   ],
   providers: [
     {

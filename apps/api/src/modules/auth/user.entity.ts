@@ -1,4 +1,5 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, OneToMany } from 'typeorm';
+import { Class } from '../classes/entities/class.entity';
 
 @Entity()
 export class User {
@@ -14,8 +15,8 @@ export class User {
   @Column()
   displayName: string;
 
-  // @Column({ nullable: true })
-  // subject: string;
+  @OneToMany(() => Class, (classes) => classes.teacher)
+  classes: Class[];
 
   @Column({ default: false })
   isVerified: boolean;

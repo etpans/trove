@@ -1,26 +1,45 @@
 import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { CreateSubjectDto } from './dto/create-subject.dto';
 import { UpdateSubjectDto } from './dto/update-subject.dto';
+import { Subject } from './entities/subject.entity';
 
 @Injectable()
 export class SubjectsService {
-  create(createSubjectDto: CreateSubjectDto) {
-    return 'This action adds a new subject';
+  constructor(
+    @InjectRepository(Subject)
+    private readonly subjectsRepo: Repository<Subject>,
+  ) {}
+
+  async create(dto: CreateSubjectDto) {
+    const subject = this.subjectsRepo.create(dto);
+    return this.subjectsRepo.save(subject);
   }
 
-  findAll() {
-    return `This action returns all subjects`;
+  async findAll() {
+    return this.subjectsRepo.find();
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} subject`;
+  async findOne(id: string) {
+    const subject = await this.subjectsRepo.findOne({ where: { id } });
+
+    return subject;
   }
 
-  update(id: number, updateSubjectDto: UpdateSubjectDto) {
-    return `This action updates a #${id} subject`;
+  async update(id: string, dto: UpdateSubjectDto) {
+    const result = await this.subjectsRepo.update(id, dto);
+
+    if (!result.affected) return null;
+
+    return this.findOne(id);
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} subject`;
+  async remove(id: string) {
+    const subject = await this.findOne(id);
+
+    if (!subject) return null;
+
+    return { deleted: true };
   }
 }
