@@ -40,6 +40,8 @@ export class SubjectsService {
 
     if (!subject) return null;
 
+    await this.subjectsRepo.remove(subject);
+
     return { deleted: true };
   }
 }

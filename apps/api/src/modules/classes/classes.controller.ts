@@ -1,34 +1,46 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  UseGuards,
+  Request,
+} from '@nestjs/common';
 import { ClassesService } from './classes.service';
 import { CreateClassDto } from './dto/create-class.dto';
 import { UpdateClassDto } from './dto/update-class.dto';
+import { AuthGuard } from '@nestjs/passport';
 
+@UseGuards(AuthGuard("jwt"))
 @Controller('classes')
 export class ClassesController {
   constructor(private readonly classesService: ClassesService) {}
 
   @Post()
-  create(@Body() createClassDto: CreateClassDto) {
-    return this.classesService.create(createClassDto);
+  create(@Request() req, @Body() createClassDto: CreateClassDto) {
+    return this.classesService.create(req.user.userId, createClassDto);
   }
 
   @Get()
-  findAll() {
-    return this.classesService.findAll();
+  findAll(@Request() req) {
+    return this.classesService.findAll(req.user.userId);
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.classesService.findOne(+id);
+  findOne(@Request() req, @Param('id') id: string) {
+    return this.classesService.findOne(req.user.userId, +id);
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateClassDto: UpdateClassDto) {
-    return this.classesService.update(+id, updateClassDto);
+  update(@Request() req, @Param('id') id: string, @Body() updateClassDto: UpdateClassDto) {
+    return this.classesService.update(req.user.userId, +id, updateClassDto);
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.classesService.remove(+id);
+  remove(@Request() req, @Param('id') id: string) {
+    return this.classesService.remove(req.user.userId, +id);
   }
 }
