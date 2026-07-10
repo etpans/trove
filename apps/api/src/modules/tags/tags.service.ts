@@ -1,26 +1,55 @@
 import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { CreateTagDto } from './dto/create-tag.dto';
 import { UpdateTagDto } from './dto/update-tag.dto';
+import { Tag } from './entities/tag.entity';
 
 @Injectable()
 export class TagsService {
-  create(createTagDto: CreateTagDto) {
-    return 'This action adds a new tag';
+  constructor(
+    @InjectRepository(Tag)
+    private readonly tagRepo: Repository<Tag>,
+  ) {}
+
+  async create(createTagDto: CreateTagDto) {
+    const tag = this.tagRepo.create(createTagDto);
+    return this.tagRepo.save(tag);
   }
 
-  findAll() {
-    return `This action returns all tags`;
+  async findAll(teacherId: string) {
+    return this.tagRepo.find({
+      where: {
+        teacher: {
+          id: teacherId,
+        },
+      },
+    });
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} tag`;
+  async findOne(teacherId: string, id: number) {
+    const tag = await this.tagRepo.findOne({
+      where: { id, teacher: { id: teacherId } },
+    });
+
+    return tag;
   }
 
-  update(id: number, updateTagDto: UpdateTagDto) {
-    return `This action updates a #${id} tag`;
+  async update(teacherId: string, id: number, updateTagDto: UpdateTagDto) {
+    const result = await this.tagRepo.update(id, updateTagDto);
+
+    if (!result.affected) return null;
+
+    return this.findOne(teacherId, id);
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} tag`;
+  async remove(teacherId: string, id: number) {
+    const tag = await this.findOne(teacherId, id);
+
+    if (!tag) return null;
+
+    await this.tagRepo.remove(tag);
+
+    return { deleted: true };
   }
 }

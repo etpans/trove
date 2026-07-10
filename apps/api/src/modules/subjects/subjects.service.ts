@@ -17,26 +17,34 @@ export class SubjectsService {
     return this.subjectsRepo.save(subject);
   }
 
-  async findAll() {
-    return this.subjectsRepo.find();
+  async findAll(teacherId: string) {
+    return this.subjectsRepo.find({
+      where: {
+        teacher: {
+          id: teacherId,
+        },
+      },
+    });
   }
 
-  async findOne(id: string) {
-    const subject = await this.subjectsRepo.findOne({ where: { id } });
+  async findOne(teacherId: string, id: number) {
+    const subject = await this.subjectsRepo.findOne({
+      where: { id, teacher: { id: teacherId } },
+    });
 
     return subject;
   }
 
-  async update(id: string, dto: UpdateSubjectDto) {
+  async update(teacherId: string, id: number, dto: UpdateSubjectDto) {
     const result = await this.subjectsRepo.update(id, dto);
 
     if (!result.affected) return null;
 
-    return this.findOne(id);
+    return this.findOne(teacherId, id);
   }
 
-  async remove(id: string) {
-    const subject = await this.findOne(id);
+  async remove(teacherId: string, id: number) {
+    const subject = await this.findOne(teacherId, id);
 
     if (!subject) return null;
 

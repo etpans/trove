@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Request, Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
 import { SubjectsService } from './subjects.service';
 import { CreateSubjectDto } from './dto/create-subject.dto';
 import { UpdateSubjectDto } from './dto/update-subject.dto';
@@ -13,22 +13,22 @@ export class SubjectsController {
   }
 
   @Get()
-  findAll() {
-    return this.subjectsService.findAll();
+  findAll(@Request() req) {
+    return this.subjectsService.findAll(req.user.teacherId);
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.subjectsService.findOne(id);
+  findOne(@Request() req, @Param('id') id: string) {
+    return this.subjectsService.findOne(req.user.teacherId, +id);
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() dto: UpdateSubjectDto) {
-    return this.subjectsService.update(id, dto);
+  update(@Request() req, @Param('id') id: string, @Body() dto: UpdateSubjectDto) {
+    return this.subjectsService.update(req.user.teacherId, +id, dto);
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.subjectsService.remove(id);
+  remove(@Request() req, @Param('id') id: string) {
+    return this.subjectsService.remove(req.user.teacherId, +id);
   }
 }

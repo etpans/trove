@@ -12,8 +12,8 @@ import { Note } from '../../notes/entities/note.entity';
 
 @Entity()
 export class Subject {
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
+  @PrimaryGeneratedColumn()
+  id: number;
 
   @Column()
   teacherId: string;
