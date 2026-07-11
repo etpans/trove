@@ -1,7 +1,7 @@
 import { IsString, MinLength, MaxLength, IsHexColor } from 'class-validator';
 import { Transform } from 'class-transformer';
 
-export class CreateTagDto  {
+export class CreateTagDto {
   @IsString()
   @MinLength(2)
   @MaxLength(30)

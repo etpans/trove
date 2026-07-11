@@ -1,4 +1,10 @@
-import { Injectable, ConflictException, UnauthorizedException, ForbiddenException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  ConflictException,
+  UnauthorizedException,
+  ForbiddenException,
+  BadRequestException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
@@ -48,7 +54,9 @@ export class AuthService {
   }
 
   async verifyEmail(token: string) {
-    const user = await this.userRepository.findOneBy({ verificationToken: hash(token) });
+    const user = await this.userRepository.findOneBy({
+      verificationToken: hash(token),
+    });
 
     // TODO: add something to indicate user is already verified if they request again
     if (!user) throw new BadRequestException('Invalid or expired token');

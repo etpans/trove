@@ -14,7 +14,7 @@ import { CreateClassDto } from './dto/create-class.dto';
 import { UpdateClassDto } from './dto/update-class.dto';
 import { AuthGuard } from '@nestjs/passport';
 
-@UseGuards(AuthGuard("jwt"))
+@UseGuards(AuthGuard('jwt'))
 @Controller('classes')
 export class ClassesController {
   constructor(private readonly classesService: ClassesService) {}
@@ -35,7 +35,11 @@ export class ClassesController {
   }
 
   @Patch(':id')
-  update(@Request() req, @Param('id') id: string, @Body() updateClassDto: UpdateClassDto) {
+  update(
+    @Request() req,
+    @Param('id') id: string,
+    @Body() updateClassDto: UpdateClassDto,
+  ) {
     return this.classesService.update(req.user.userId, +id, updateClassDto);
   }
 

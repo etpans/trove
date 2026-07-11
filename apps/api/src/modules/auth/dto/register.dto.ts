@@ -1,4 +1,11 @@
-import { IsEmail, IsString, IsNotEmpty, MinLength, MaxLength, Matches } from 'class-validator';
+import {
+  IsEmail,
+  IsString,
+  IsNotEmpty,
+  MinLength,
+  MaxLength,
+  Matches,
+} from 'class-validator';
 import { Transform } from 'class-transformer';
 
 export class RegisterDto {
@@ -11,8 +18,7 @@ export class RegisterDto {
   @MinLength(2)
   @MaxLength(30)
   @Matches(/^[\p{L}\p{N} _-]+$/u, {
-    message:
-      'Display name contains invalid characters',
+    message: 'Display name contains invalid characters',
   })
   displayName: string;
 

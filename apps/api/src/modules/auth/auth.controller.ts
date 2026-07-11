@@ -1,9 +1,16 @@
-import { Controller, Post, Get, Body, Request, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Get,
+  Body,
+  Request,
+  UseGuards,
+} from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
-import { RefreshDto } from './dto/refresh.dto'
-import { VerifyEmailDto } from './dto/verify-email.dto'
+import { RefreshDto } from './dto/refresh.dto';
+import { VerifyEmailDto } from './dto/verify-email.dto';
 import { LoginDto } from './dto/login.dto';
 import { AuthGuard } from '@nestjs/passport';
 

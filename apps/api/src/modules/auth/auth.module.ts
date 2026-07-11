@@ -26,7 +26,13 @@ import { TurnstileGuard } from './strategies/turnstile.guard';
       }),
     }),
   ],
-  providers: [AuthService, LocalStrategy, JwtStrategy, EmailService, TurnstileGuard],
+  providers: [
+    AuthService,
+    LocalStrategy,
+    JwtStrategy,
+    EmailService,
+    TurnstileGuard,
+  ],
   controllers: [AuthController],
   exports: [JwtStrategy, JwtModule],
 })
