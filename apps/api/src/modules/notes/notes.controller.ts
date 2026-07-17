@@ -1,34 +1,50 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  UseGuards,
+  Request,
+} from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
 import { NotesService } from './notes.service';
 import { CreateNoteDto } from './dto/create-note.dto';
 import { UpdateNoteDto } from './dto/update-note.dto';
 
+@UseGuards(AuthGuard('jwt'))
 @Controller('notes')
 export class NotesController {
   constructor(private readonly notesService: NotesService) {}
 
   @Post()
-  create(@Body() createNoteDto: CreateNoteDto) {
-    return this.notesService.create(createNoteDto);
+  create(@Request() req: { user: { userId: string } }, @Body() createNoteDto: CreateNoteDto) {
+    return this.notesService.create(req.user.userId, createNoteDto);
   }
 
   @Get()
-  findAll() {
-    return this.notesService.findAll();
+  findAll(@Request() req: { user: { userId: string } }) {
+    return this.notesService.findAll(req.user.userId);
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.notesService.findOne(+id);
+  findOne(@Request() req: { user: { userId: string } }, @Param('id') id: string) {
+    return this.notesService.findOne(req.user.userId, +id);
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateNoteDto: UpdateNoteDto) {
-    return this.notesService.update(+id, updateNoteDto);
+  update(
+    @Request() req: { user: { userId: string } },
+    @Param('id') id: string,
+    @Body() updateNoteDto: UpdateNoteDto,
+  ) {
+    return this.notesService.update(req.user.userId, +id, updateNoteDto);
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.notesService.remove(+id);
+  remove(@Request() req: { user: { userId: string } }, @Param('id') id: string) {
+    return this.notesService.remove(req.user.userId, +id);
   }
 }

@@ -12,8 +12,11 @@ export class TagsService {
     private readonly tagRepo: Repository<Tag>,
   ) {}
 
-  async create(createTagDto: CreateTagDto) {
-    const tag = this.tagRepo.create(createTagDto);
+  async create(teacherId: string, createTagDto: CreateTagDto) {
+    const tag = this.tagRepo.create({
+      ...createTagDto,
+      teacherId,
+    });
     return this.tagRepo.save(tag);
   }
 

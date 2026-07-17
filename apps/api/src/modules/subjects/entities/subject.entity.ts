@@ -28,7 +28,6 @@ export class Subject {
   @Column()
   color: string;
 
-  // TODO: setup relation to Notes
-  // @OneToMany(() => Note, (note) => note.subject)
-  // notes: Note[];
+  @OneToMany(() => Note, (note) => note.subject)
+  notes: Note[];
 }

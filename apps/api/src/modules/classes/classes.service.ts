@@ -2,6 +2,7 @@ import {
   Injectable,
   ForbiddenException,
   NotFoundException,
+  BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { User } from '../auth/user.entity';
@@ -15,6 +16,7 @@ export class ClassesService {
   constructor(
     @InjectRepository(Class)
     private readonly classRepo: Repository<Class>,
+    @InjectRepository(User)
     private readonly userRepo: Repository<User>,
   ) {}
 
@@ -54,15 +56,24 @@ export class ClassesService {
 
   async update(teacherId: string, id: number, dto: UpdateClassDto) {
     const classEntity = await this.classRepo.findOne({
-      where: { teacher: { id: teacherId } },
+      where: {
+        id,
+        teacher: {
+          id: teacherId,
+        },
+      },
     });
     if (!classEntity) throw new NotFoundException();
 
-    const result = await this.classRepo.update(id, UpdateClassDto);
+    if (Object.keys(dto).length === 0) {
+      throw new BadRequestException('No fields provided for update');
+    }
+
+    const result = await this.classRepo.update(id, dto);
 
     if (!result.affected) return null;
 
-    return this.classRepo.update(id, UpdateClassDto);
+    return this.classRepo.findOne({ where: { id } });
   }
 
   async remove(teacherId: string, id: number) {

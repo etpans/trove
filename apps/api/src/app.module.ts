@@ -10,13 +10,16 @@ import { User } from './modules/auth/user.entity';
 import { Subject } from './modules/subjects/entities/subject.entity';
 import { Class } from './modules/classes/entities/class.entity';
 import { RefreshToken } from './modules/auth/refresh-token.entity';
-// import { TeachersModule } from './modules/teachers/teacher.module';
-// import { StudentsModule } from './modules/students/student.module';
-// import { NotesModule } from './modules/notes/notes.module';
-// import { AcademicsModule } from './modules/academics/academics.module';
+import { Student } from './modules/students/entities/student.entity';
+import { Note } from './modules/notes/entities/note.entity';
+import { Tag } from './modules/tags/entities/tag.entity';
+
 import { AuthModule } from './modules/auth/auth.module';
-// import { StudentsModule } from './students/students.module';
+import { ClassesModule } from './modules/classes/classes.module';
+import { StudentsModule } from './modules/students/students.module';
+import { NotesModule } from './modules/notes/notes.module';
 import { SubjectsModule } from './modules/subjects/subjects.module';
+import { TagsModule } from './modules/tags/tags.module';
 
 @Module({
   imports: [
@@ -36,12 +39,16 @@ import { SubjectsModule } from './modules/subjects/subjects.module';
         username: config.get('DB_USER'),
         password: config.get('DB_PASS'),
         database: config.get('DB_NAME'),
-        entities: [User, RefreshToken, Subject, Class],
+        entities: [User, RefreshToken, Subject, Class, Student, Note, Tag],
         synchronize: true, // turn off in production
       }),
     }),
     AuthModule,
+    ClassesModule,
+    StudentsModule,
+    NotesModule,
     SubjectsModule,
+    TagsModule,
   ],
   providers: [
     {

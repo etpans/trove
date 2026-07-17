@@ -5,7 +5,7 @@ import {
   ManyToOne,
   JoinColumn,
   CreateDateColumn,
-  OneToMany,
+  ManyToMany,
 } from 'typeorm';
 import { User } from '../../auth/user.entity';
 import { Note } from '../../notes/entities/note.entity';
@@ -28,7 +28,6 @@ export class Tag {
   @Column()
   color: string;
 
-  // TODO: setup relation to Notes
-  // @OneToMany(() => Note, (note) => note.subject)
-  // notes: Note[];
+  @ManyToMany(() => Note, (note) => note.tags)
+  notes: Note[];
 }

@@ -26,7 +26,7 @@ export class Class {
   students: Student[];
 
   @Column({ type: 'date' })
-  session: string;
+  session: Date;
 
   @CreateDateColumn()
   createdAt: Date;
