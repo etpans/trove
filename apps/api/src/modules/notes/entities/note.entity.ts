@@ -3,6 +3,8 @@ import {
   PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
+  UpdateDateColumn,
+  OneToMany,
   ManyToOne,
   JoinColumn,
   ManyToMany,
@@ -12,6 +14,8 @@ import { Student } from '../../students/entities/student.entity';
 import { User } from '../../auth/user.entity';
 import { Subject } from '../../subjects/entities/subject.entity';
 import { Tag } from '../../tags/entities/tag.entity';
+import { NoteAttachmentEntity } from './note-attachment.entity';
+import { ShareLinkEntity } from './share-link.entity';
 
 @Entity()
 export class Note {
@@ -21,8 +25,8 @@ export class Note {
   @Column()
   title: string;
 
-  @Column({ type: 'text' })
-  content: string;
+  @Column({ type: 'text', nullable: true })
+  content: string | null;
 
   @Column()
   studentId: number;
@@ -33,6 +37,12 @@ export class Note {
 
   @Column({ nullable: true })
   subjectId?: number;
+
+  @OneToMany(() => NoteAttachmentEntity, (a) => a.note, { cascade: true })
+  attachments: NoteAttachmentEntity[];
+
+  @OneToMany(() => ShareLinkEntity, (sl) => sl.note, { cascade: true })
+  shareLinks: ShareLinkEntity[];
 
   @ManyToOne(() => Subject, (subject) => subject.notes, {
     onDelete: 'SET NULL',
@@ -51,6 +61,9 @@ export class Note {
   @ManyToMany(() => Tag, (tag) => tag.notes)
   @JoinTable()
   tags: Tag[];
+
+  @UpdateDateColumn()
+  updatedAt: Date;
 
   @CreateDateColumn()
   createdAt: Date;
