@@ -13,9 +13,6 @@ export class NoteAttachmentEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
-  noteId: string;
-
   @ManyToOne(() => Note, (note) => note.attachments, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'noteId' })
   note: Note;

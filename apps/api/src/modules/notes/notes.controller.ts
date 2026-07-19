@@ -8,11 +8,14 @@ import {
   Delete,
   UseGuards,
   Request,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { NotesService } from './notes.service';
 import { CreateNoteDto } from './dto/create-note.dto';
 import { UpdateNoteDto } from './dto/update-note.dto';
+import { FileInterceptor } from '@nestjs/platform-express';
 
 @UseGuards(AuthGuard('jwt'))
 @Controller('notes')
@@ -20,7 +23,10 @@ export class NotesController {
   constructor(private readonly notesService: NotesService) {}
 
   @Post()
-  create(@Request() req: { user: { userId: string } }, @Body() createNoteDto: CreateNoteDto) {
+  create(
+    @Request() req: { user: { userId: string } },
+    @Body() createNoteDto: CreateNoteDto,
+  ) {
     return this.notesService.create(req.user.userId, createNoteDto);
   }
 
@@ -30,7 +36,10 @@ export class NotesController {
   }
 
   @Get(':id')
-  findOne(@Request() req: { user: { userId: string } }, @Param('id') id: string) {
+  findOne(
+    @Request() req: { user: { userId: string } },
+    @Param('id') id: string,
+  ) {
     return this.notesService.findOne(req.user.userId, +id);
   }
 
@@ -44,7 +53,42 @@ export class NotesController {
   }
 
   @Delete(':id')
-  remove(@Request() req: { user: { userId: string } }, @Param('id') id: string) {
+  remove(
+    @Request() req: { user: { userId: string } },
+    @Param('id') id: string,
+  ) {
     return this.notesService.remove(req.user.userId, +id);
+  }
+
+  @Post(':id/attachments')
+  @UseInterceptors(FileInterceptor('file'))
+  uploadAttachment(
+    @Request() req: { user: { userId: string } },
+    @Param('id') id: string,
+    @UploadedFile() file: Express.Multer.File,
+    @Body('caption') caption?: string,
+  ) {
+    return this.notesService.addAttachment(req.user.userId, +id, file, caption);
+  }
+
+  @Delete(':noteId/attachments/:attachmentId')
+  deleteAttachment(
+    @Request() req: { user: { userId: string } },
+    @Param('noteId') noteId: string,
+    @Param('attachmentId') attachmentId: string,
+  ) {
+    return this.notesService.removeAttachment(
+      req.user.userId,
+      +noteId,
+      attachmentId,
+    );
+  }
+
+  @Post(':id/share')
+  createShareLink(
+    @Request() req: { user: { userId: string } },
+    @Param('id') id: string,
+  ) {
+    return this.notesService.createShareLink(req.user.userId, +id);
   }
 }

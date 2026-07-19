@@ -7,6 +7,9 @@ import { Note } from './entities/note.entity';
 import { Student } from '../students/entities/student.entity';
 import { Subject } from '../subjects/entities/subject.entity';
 import { Tag } from '../tags/entities/tag.entity';
+import { NoteAttachmentEntity } from './entities/note-attachment.entity';
+import { ShareLinkEntity } from './entities/share-link.entity';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class NotesService {
@@ -19,10 +22,13 @@ export class NotesService {
     private readonly subjectRepo: Repository<Subject>,
     @InjectRepository(Tag)
     private readonly tagRepo: Repository<Tag>,
+    @InjectRepository(NoteAttachmentEntity)
+    private readonly attachmentRepo: Repository<NoteAttachmentEntity>,
+    @InjectRepository(ShareLinkEntity)
+    private readonly shareLinkRepo: Repository<ShareLinkEntity>,
   ) {}
 
   async create(teacherId: string, createNoteDto: CreateNoteDto) {
-    // Verify the student belongs to a class taught by the teacher
     const student = await this.studentRepo.findOne({
       where: {
         id: createNoteDto.studentId,
@@ -43,7 +49,6 @@ export class NotesService {
       );
     }
 
-    // Verify subject if provided
     if (createNoteDto.subjectId) {
       const subject = await this.subjectRepo.findOne({
         where: {
@@ -60,7 +65,6 @@ export class NotesService {
       }
     }
 
-    // Verify tags if provided
     let tags: Tag[] = [];
     if (createNoteDto.tagIds && createNoteDto.tagIds.length > 0) {
       tags = await this.tagRepo.find({
@@ -98,6 +102,7 @@ export class NotesService {
         student: true,
         subject: true,
         tags: true,
+        attachments: true,
       },
     });
   }
@@ -112,6 +117,7 @@ export class NotesService {
         student: true,
         subject: true,
         tags: true,
+        attachments: true,
       },
     });
 
@@ -201,6 +207,82 @@ export class NotesService {
   async remove(teacherId: string, id: number) {
     const note = await this.findOne(teacherId, id);
     await this.noteRepo.remove(note);
+    return { deleted: true };
+  }
+
+  async addAttachment(
+    teacherId: string,
+    noteId: number,
+    file: Express.Multer.File,
+    caption?: string,
+  ) {
+    const note = await this.findOne(teacherId, noteId);
+
+    // TODO: cloud upload to url to update fileUrl
+    const attachment = this.attachmentRepo.create({
+      note,
+      fileUrl: file.path,
+      fileType: file.mimetype,
+      caption: caption ?? null,
+    });
+
+    return this.attachmentRepo.save(attachment);
+  }
+
+  async removeAttachment(
+    teacherId: string,
+    noteId: number,
+    attachmentId: string,
+  ) {
+    const attachment = await this.attachmentRepo.findOne({
+      where: {
+        id: attachmentId,
+        note: {
+          id: noteId,
+          teacherId,
+        },
+      },
+      relations: {
+        note: true,
+      },
+    });
+
+    if (!attachment) {
+      throw new NotFoundException('Attachment not found');
+    }
+
+    await this.attachmentRepo.remove(attachment);
+
+    return { deleted: true };
+  }
+
+  async createShareLink(teacherId: string, noteId: number) {
+    const note = await this.findOne(teacherId, noteId);
+
+    const shareLink = this.shareLinkRepo.create({
+      note,
+      token: randomUUID(),
+    });
+
+    return this.shareLinkRepo.save(shareLink);
+  }
+
+  async removeShareLink(teacherId: string, shareId: string) {
+    const link = await this.shareLinkRepo.findOne({
+      where: {
+        id: shareId,
+        note: {
+          teacherId,
+        },
+      },
+    });
+
+    if (!link) {
+      throw new NotFoundException();
+    }
+
+    await this.shareLinkRepo.remove(link);
+
     return { deleted: true };
   }
 }

@@ -26,6 +26,9 @@ export class ShareLinkEntity {
   @Column({ default: true })
   isActive: boolean;
 
+  @Column({ default: false })
+  allowComments: boolean;
+
   @Column({ type: 'timestamptz', nullable: true })
   expiresAt: Date | null;
 

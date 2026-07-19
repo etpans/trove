@@ -13,6 +13,8 @@ import { RefreshToken } from './modules/auth/refresh-token.entity';
 import { Student } from './modules/students/entities/student.entity';
 import { Note } from './modules/notes/entities/note.entity';
 import { Tag } from './modules/tags/entities/tag.entity';
+import { NoteAttachmentEntity } from './modules/notes/entities/note-attachment.entity'
+import { ShareLinkEntity } from './modules/notes/entities/share-link.entity'
 
 import { AuthModule } from './modules/auth/auth.module';
 import { ClassesModule } from './modules/classes/classes.module';
@@ -39,7 +41,7 @@ import { TagsModule } from './modules/tags/tags.module';
         username: config.get('DB_USER'),
         password: config.get('DB_PASS'),
         database: config.get('DB_NAME'),
-        entities: [User, RefreshToken, Subject, Class, Student, Note, Tag],
+        entities: [User, RefreshToken, Subject, Class, Student, Note, Tag, NoteAttachmentEntity, ShareLinkEntity],
         synchronize: true, // turn off in production
       }),
     }),
