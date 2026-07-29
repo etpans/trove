@@ -4,6 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "seed": "pnpm --filter api seed",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
