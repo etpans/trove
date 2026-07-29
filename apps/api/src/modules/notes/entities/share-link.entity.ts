@@ -5,6 +5,7 @@ import {
   CreateDateColumn,
   ManyToOne,
   JoinColumn,
+  Index,
 } from 'typeorm';
 import { Note } from './note.entity';
 
@@ -13,13 +14,15 @@ export class ShareLinkEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  @Index()
   @Column({ unique: true })
-  noteId: string;
+  noteId: number;
 
-  @ManyToOne(() => Note, (note) => note.attachments, { onDelete: 'CASCADE' })
+  @ManyToOne(() => Note, (note) => note.shareLinks, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'noteId' })
   note: Note;
 
+  @Index()
   @Column({ unique: true })
   token: string;
 

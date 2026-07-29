@@ -9,6 +9,7 @@ import {
   JoinColumn,
   ManyToMany,
   JoinTable,
+  Index,
 } from 'typeorm';
 import { Student } from '../../students/entities/student.entity';
 import { User } from '../../auth/user.entity';
@@ -28,6 +29,7 @@ export class Note {
   @Column({ type: 'text', nullable: true })
   content: string | null;
 
+  @Index()
   @Column()
   studentId: number;
 
@@ -35,6 +37,7 @@ export class Note {
   @JoinColumn({ name: 'studentId' })
   student: Student;
 
+  @Index()
   @Column({ nullable: true })
   subjectId?: number;
 
@@ -51,6 +54,7 @@ export class Note {
   @JoinColumn({ name: 'subjectId' })
   subject?: Subject;
 
+  @Index()
   @Column()
   teacherId: string;
 
@@ -65,6 +69,7 @@ export class Note {
   @UpdateDateColumn()
   updatedAt: Date;
 
+  @Index()
   @CreateDateColumn()
   createdAt: Date;
 }

@@ -5,6 +5,7 @@ import {
   CreateDateColumn,
   ManyToOne,
   JoinColumn,
+  Index,
 } from 'typeorm';
 import { Note } from './note.entity';
 
@@ -12,6 +13,10 @@ import { Note } from './note.entity';
 export class NoteAttachmentEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
+
+  @Index()
+  @Column()
+  noteId: number;
 
   @ManyToOne(() => Note, (note) => note.attachments, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'noteId' })

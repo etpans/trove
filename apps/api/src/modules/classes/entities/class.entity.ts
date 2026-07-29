@@ -6,6 +6,7 @@ import {
   ManyToOne,
   JoinColumn,
   OneToMany,
+  Index,
 } from 'typeorm';
 import { User } from '../../auth/user.entity';
 import { Student } from '../../students/entities/student.entity';
@@ -18,7 +19,11 @@ export class Class {
   @Column()
   name: string;
 
-  @ManyToOne(() => User, (user) => user.classes)
+  @Index()
+  @Column()
+  teacherId: string;
+
+  @ManyToOne(() => User, (user) => user.classes, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'teacherId' })
   teacher: User;
 

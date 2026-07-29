@@ -6,6 +6,7 @@ import {
   JoinColumn,
   CreateDateColumn,
   OneToMany,
+  Index,
 } from 'typeorm';
 import { User } from '../../auth/user.entity';
 import { Note } from '../../notes/entities/note.entity';
@@ -15,6 +16,7 @@ export class Subject {
   @PrimaryGeneratedColumn()
   id: number;
 
+  @Index()
   @Column()
   teacherId: string;
 

@@ -6,6 +6,7 @@ import {
   ManyToOne,
   OneToMany,
   JoinColumn,
+  Index,
 } from 'typeorm';
 import { Class } from '../../classes/entities/class.entity';
 import { Note } from '../../notes/entities/note.entity';
@@ -21,6 +22,7 @@ export class Student {
   @Column({ nullable: true })
   rollNumber?: string;
 
+  @Index()
   @Column()
   classId: number;
 

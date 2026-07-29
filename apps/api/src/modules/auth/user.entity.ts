@@ -4,6 +4,7 @@ import {
   Column,
   CreateDateColumn,
   OneToMany,
+  Index,
 } from 'typeorm';
 import { Class } from '../classes/entities/class.entity';
 
@@ -27,6 +28,7 @@ export class User {
   @Column({ default: false })
   isVerified: boolean;
 
+  @Index()
   @Column({ nullable: true, select: false })
   verificationToken?: string;
 
