@@ -285,4 +285,28 @@ export class NotesService {
 
     return { deleted: true };
   }
+
+  async getSharedNote(token: string) {
+    const shareLink = await this.shareLinkRepo.findOne({
+      where: { token, isActive: true },
+      relations: {
+        note: {
+          student: true,
+          subject: true,
+          tags: true,
+          attachments: true,
+        },
+      },
+    });
+
+    if (!shareLink) {
+      throw new NotFoundException('Shared link not found or inactive');
+    }
+
+    if (shareLink.expiresAt && shareLink.expiresAt < new Date()) {
+      throw new NotFoundException('Shared link has expired');
+    }
+
+    return shareLink;
+  }
 }

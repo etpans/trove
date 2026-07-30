@@ -91,4 +91,22 @@ export class NotesController {
   ) {
     return this.notesService.createShareLink(req.user.userId, +id);
   }
+
+  @Delete('share/:shareId')
+  removeShareLink(
+    @Request() req: { user: { userId: string } },
+    @Param('shareId') shareId: string,
+  ) {
+    return this.notesService.removeShareLink(req.user.userId, shareId);
+  }
+}
+
+@Controller('share')
+export class PublicShareController {
+  constructor(private readonly notesService: NotesService) {}
+
+  @Get(':token')
+  getSharedNote(@Param('token') token: string) {
+    return this.notesService.getSharedNote(token);
+  }
 }
