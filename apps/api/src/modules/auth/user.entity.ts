@@ -29,17 +29,20 @@ export class User {
   isVerified: boolean;
 
   @Index()
-  @Column({ nullable: true, select: false })
-  verificationToken?: string;
+  @Column({ type: 'varchar', nullable: true, select: false })
+  verificationToken: string | null;
 
   @Column({ type: 'timestamptz', nullable: true })
-  verificationExpiry?: Date;
+  verificationExpiry: Date | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  lastVerificationEmailSentAt: Date | null;
 
   @Column({ default: 0 })
   failedLoginAttempts: number;
 
   @Column({ type: 'timestamptz', nullable: true })
-  lockedUntil?: Date;
+  lockedUntil: Date | null;
 
   // TODO: change this to include student entity; teacher -> students -> notes
   // @OneToMany(() => Note, (note) => note.teacher, { cascade: true })

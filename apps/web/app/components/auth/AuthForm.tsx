@@ -4,7 +4,8 @@ import Button from "@mui/material/Button";
 import Checkbox from "@mui/material/Checkbox";
 import Divider from "@mui/material/Divider";
 import FormControlLabel from "@mui/material/FormControlLabel";
-import { useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState, type FormEvent } from "react";
 import AuthModeToggle from "./AuthModeToggle";
 import AuthProviderButton from "./AuthProviderButton";
 import FormTextField from "./FormTextField";
@@ -16,6 +17,21 @@ type AuthFormProps = {
 };
 
 type FocusedField = string | null;
+
+type AuthApiResponse = {
+  cooldownSeconds?: number;
+  message?: string;
+  signedIn?: boolean;
+};
+
+class AuthRequestError extends Error {
+  constructor(
+    message: string,
+    readonly cooldownSeconds?: number,
+  ) {
+    super(message);
+  }
+}
 
 async function submitAuthRequest(payload: {
   name?: string;
@@ -33,7 +49,7 @@ async function submitAuthRequest(payload: {
     method: "POST",
   });
 
-  const data = (await response.json()) as { message?: string };
+  const data = (await response.json()) as AuthApiResponse;
 
   if (!response.ok) {
     throw new Error(data.message ?? "Something went wrong.");
@@ -42,12 +58,48 @@ async function submitAuthRequest(payload: {
   return data;
 }
 
+async function resendVerificationEmail(email: string) {
+  const response = await fetch("/api/auth/resend-verification", {
+    body: JSON.stringify({ email }),
+    headers: {
+      "Content-Type": "application/json",
+    },
+    method: "POST",
+  });
+  const data = (await response.json()) as AuthApiResponse;
+
+  if (!response.ok) {
+    throw new AuthRequestError(
+      data.message ?? "Unable to resend verification.",
+      data.cooldownSeconds,
+    );
+  }
+
+  return data;
+}
+
 export default function AuthForm({ mode, onModeChange }: AuthFormProps) {
+  const router = useRouter();
   const [form, setForm] = useState(emptyAuthForm);
   const [error, setError] = useState("");
   const [focusedField, setFocusedField] = useState<FocusedField>(null);
   const [isSubmitting, setSubmitting] = useState(false);
+  const [pendingVerificationEmail, setPendingVerificationEmail] = useState("");
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const [isResending, setResending] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
+
+  useEffect(() => {
+    if (resendCooldown <= 0) {
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      setResendCooldown((current) => Math.max(current - 1, 0));
+    }, 1000);
+
+    return () => window.clearInterval(timer);
+  }, [resendCooldown]);
 
   async function handleGoogleSignIn() {
     setSubmitting(true);
@@ -78,6 +130,7 @@ export default function AuthForm({ mode, onModeChange }: AuthFormProps) {
     setSuccessMessage("");
 
     try {
+      const submittedEmail = form.email;
       const data = await submitAuthRequest({
         email: form.email,
         mode,
@@ -87,14 +140,67 @@ export default function AuthForm({ mode, onModeChange }: AuthFormProps) {
       });
       setSuccessMessage(data.message ?? "Request received.");
       setForm(emptyAuthForm);
+
+      if (data.signedIn) {
+        setPendingVerificationEmail("");
+        router.push("/dashboard");
+      } else if (mode === "signup") {
+        setPendingVerificationEmail(submittedEmail);
+        setResendCooldown(60);
+      }
     } catch (submitError) {
-      setError(
+      const message =
         submitError instanceof Error
           ? submitError.message
-          : "Unable to submit the form.",
+          : "Unable to submit the form.";
+
+      if (mode === "login" && message.toLowerCase().includes("verify")) {
+        setPendingVerificationEmail(form.email);
+      }
+
+      if (
+        mode === "signup" &&
+        message.toLowerCase().includes("resend")
+      ) {
+        setPendingVerificationEmail(form.email);
+      }
+
+      setError(
+        message,
       );
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleResendVerification() {
+    if (!pendingVerificationEmail || resendCooldown > 0) {
+      return;
+    }
+
+    setResending(true);
+    setError("");
+    setSuccessMessage("");
+
+    try {
+      const data = await resendVerificationEmail(pendingVerificationEmail);
+      setSuccessMessage(data.message ?? "Verification email sent.");
+      setResendCooldown(data.cooldownSeconds ?? 60);
+    } catch (resendError) {
+      if (
+        resendError instanceof AuthRequestError &&
+        resendError.cooldownSeconds
+      ) {
+        setResendCooldown(resendError.cooldownSeconds);
+      }
+
+      setError(
+        resendError instanceof Error
+          ? resendError.message
+          : "Unable to resend verification.",
+      );
+    } finally {
+      setResending(false);
     }
   }
 
@@ -103,11 +209,13 @@ export default function AuthForm({ mode, onModeChange }: AuthFormProps) {
     setForm(emptyAuthForm);
     setError("");
     setFocusedField(null);
+    setPendingVerificationEmail("");
+    setResendCooldown(0);
     setSuccessMessage("");
   }
 
-  const isLoginPasswordTooShort =
-    mode === "login" && form.password.length > 0 && form.password.length < 6;
+  const isPasswordTooShort =
+    form.password.length > 0 && form.password.length < 8;
 
   return (
     <>
@@ -182,10 +290,10 @@ export default function AuthForm({ mode, onModeChange }: AuthFormProps) {
             }
             required
             placeholder="******"
-            error={isLoginPasswordTooShort}
+            error={isPasswordTooShort}
             helperText={
-              isLoginPasswordTooShort
-                ? "Password must be at least 6 characters."
+              isPasswordTooShort
+                ? "Password must be at least 8 characters."
                 : " "
             }
           />
@@ -236,9 +344,38 @@ export default function AuthForm({ mode, onModeChange }: AuthFormProps) {
           </p>
         ) : null}
 
+        {pendingVerificationEmail ? (
+          <Button
+            disabled={isResending || resendCooldown > 0}
+            fullWidth
+            onClick={handleResendVerification}
+            sx={{
+              borderColor: "#d7dce5",
+              borderRadius: "10px",
+              color: "#111111",
+              fontSize: "0.875rem",
+              fontWeight: 600,
+              minHeight: "44px",
+              textTransform: "none",
+              "&:hover": {
+                backgroundColor: "#f7f7f5",
+                borderColor: "#c5ccd8",
+              },
+            }}
+            type="button"
+            variant="outlined"
+          >
+            {isResending
+              ? "Sending..."
+              : resendCooldown > 0
+                ? `Resend in ${resendCooldown}s`
+                : "Resend verification email"}
+          </Button>
+        ) : null}
+
         <Button
           disableElevation
-          disabled={isSubmitting || isLoginPasswordTooShort}
+          disabled={isSubmitting || isPasswordTooShort}
           fullWidth
           sx={{
             backgroundColor: "#378ADD",

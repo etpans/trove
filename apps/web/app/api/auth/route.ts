@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { setAuthCookies } from "./cookies";
+import { getApiUrl, parseUpstreamResponse } from "./upstream";
 
 type AuthPayload = {
   name?: string;
@@ -9,35 +11,8 @@ type AuthPayload = {
   rememberMe?: boolean;
 };
 
-type AuthResponseBody = {
-  access_token?: string;
-  message?: string;
-  refresh_token?: string;
-};
-
-const apiBaseUrl =
-  process.env.API_BASE_URL ??
-  process.env.NEXT_PUBLIC_API_BASE_URL ??
-  "http://localhost:3000";
-
 function getAuthEndpoint(mode: "login" | "signup") {
-  return new URL(
-    mode === "signup" ? "/auth/register" : "/auth/login",
-    apiBaseUrl,
-  ).toString();
-}
-
-async function parseUpstreamResponse(
-  response: Response,
-): Promise<AuthResponseBody> {
-  const contentType = response.headers.get("content-type") ?? "";
-
-  if (contentType.includes("application/json")) {
-    return (await response.json()) as AuthResponseBody;
-  }
-
-  const text = await response.text();
-  return text ? { message: text } : {};
+  return getApiUrl(mode === "signup" ? "/auth/register" : "/auth/login");
 }
 
 export async function POST(request: Request) {
@@ -108,17 +83,23 @@ export async function POST(request: Request) {
       );
     }
 
-    return NextResponse.json(
+    const response = NextResponse.json(
       {
-        ...data,
         message:
           data.message ??
           (body.mode === "signup"
             ? "Check your email to verify your account."
             : "Signed in successfully."),
+        signedIn: body.mode === "login",
       },
       { status: upstreamResponse.status },
     );
+
+    if (body.mode === "login") {
+      setAuthCookies(response, data);
+    }
+
+    return response;
   } catch {
     return NextResponse.json(
       {

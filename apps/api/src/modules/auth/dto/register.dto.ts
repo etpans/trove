@@ -10,7 +10,9 @@ import { Transform } from 'class-transformer';
 
 export class RegisterDto {
   @IsEmail()
-  @Transform(({ value }) => value.toLowerCase().trim())
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.toLowerCase().trim() : value,
+  )
   email: string;
 
   @IsString()
