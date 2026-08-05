@@ -4,6 +4,7 @@
 :root {
   --background: #ffffff;
   --foreground: #111111;
+  --font-albert-sans: "Inter", "Segoe UI", Arial, sans-serif;
 }
 
 @theme inline {
