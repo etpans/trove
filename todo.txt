@@ -18,3 +18,4 @@ x 2026-07-26 2026-07-26 Write a seed script +backend
 x 2026-07-29 2026-07-29 Add database indexes +backend
 (A) Write e2e tests +backend
 x 2026-07-21 2026-07-21 Add service methods in notes for creating attachments and share links +backend
+(A) Create verify email page
