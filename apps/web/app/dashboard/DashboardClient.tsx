@@ -10,7 +10,7 @@ import {
 import Button from "@mui/material/Button";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 
 type SessionState = {
   authenticated: boolean;
@@ -71,6 +71,50 @@ function formatSessionDate(value: string) {
   }).format(date);
 }
 
+function UnauthorizedDashboard() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-[#fafaf8] px-5 py-12 text-[#111111]">
+      <main className="w-full max-w-md rounded-lg border border-[#e7e5df] bg-white p-7 text-center shadow-[0_18px_60px_rgba(17,17,17,0.08)]">
+        <Link
+          className="text-lg font-semibold tracking-[-0.04em] lowercase"
+          href="/"
+        >
+          trove
+        </Link>
+
+        <p className="mt-8 text-sm font-semibold text-[#378ADD]">401</p>
+        <h1 className="mt-2 text-3xl font-semibold leading-tight">
+          Sign in required
+        </h1>
+        <p className="mt-3 text-sm leading-6 text-[#5f5f5f]">
+          You need to be logged in before you can view your dashboard.
+        </p>
+
+        <Button
+          disableElevation
+          href="/"
+          sx={{
+            backgroundColor: "#111111",
+            borderRadius: "8px",
+            color: "#ffffff",
+            fontWeight: 700,
+            mt: 4,
+            minHeight: "44px",
+            px: 3,
+            textTransform: "none",
+            "&:hover": {
+              backgroundColor: "#2b2b2b",
+            },
+          }}
+          variant="contained"
+        >
+          Go to sign in
+        </Button>
+      </main>
+    </div>
+  );
+}
+
 function DashboardContent() {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -129,12 +173,6 @@ function DashboardContent() {
     },
   });
 
-  useEffect(() => {
-    if (sessionQuery.isError || sessionQuery.data?.authenticated === false) {
-      router.replace("/");
-    }
-  }, [router, sessionQuery.data?.authenticated, sessionQuery.isError]);
-
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });
     router.replace("/");
@@ -171,6 +209,10 @@ function DashboardContent() {
   const isLoadingDashboard =
     sessionQuery.isLoading ||
     (sessionQuery.data?.authenticated === true && classesQuery.isLoading);
+
+  if (sessionQuery.isError || sessionQuery.data?.authenticated === false) {
+    return <UnauthorizedDashboard />;
+  }
 
   return (
     <div className="min-h-screen bg-[#fafaf8] px-5 py-6 text-[#111111] sm:px-8">
