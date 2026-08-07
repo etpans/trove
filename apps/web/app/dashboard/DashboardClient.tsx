@@ -115,6 +115,30 @@ function UnauthorizedDashboard() {
   );
 }
 
+function DashboardLoading() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-[#fafaf8] px-5 py-12 text-[#111111]">
+      <main className="w-full max-w-md rounded-lg border border-[#e7e5df] bg-white p-7 text-center shadow-[0_18px_60px_rgba(17,17,17,0.08)]">
+        <Link
+          className="text-lg font-semibold tracking-[-0.04em] lowercase"
+          href="/"
+        >
+          trove
+        </Link>
+
+        <div
+          aria-label="Loading dashboard"
+          className="mx-auto mt-9 h-10 w-10 animate-spin rounded-full border-2 border-[#d7dce5] border-t-[#378ADD]"
+          role="status"
+        />
+        <h1 className="mt-6 text-2xl font-semibold leading-tight">
+          Loading dashboard
+        </h1>
+      </main>
+    </div>
+  );
+}
+
 function DashboardContent() {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -209,6 +233,10 @@ function DashboardContent() {
   const isLoadingDashboard =
     sessionQuery.isLoading ||
     (sessionQuery.data?.authenticated === true && classesQuery.isLoading);
+
+  if (sessionQuery.isLoading) {
+    return <DashboardLoading />;
+  }
 
   if (sessionQuery.isError || sessionQuery.data?.authenticated === false) {
     return <UnauthorizedDashboard />;
