@@ -43,7 +43,7 @@ export class AuthController {
     return this.authService.resendVerificationEmail(dto.email);
   }
 
-  @Throttle({ default: { ttl: 60000, limit: 5 } })
+  @Throttle({ default: { ttl: 60000, limit: 10 } })
   // @UserGuards(AuthGuard('TurnstileGuard'))
   @UseGuards(AuthGuard('local'))
   @Post('login')
