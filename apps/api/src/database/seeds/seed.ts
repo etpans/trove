@@ -181,7 +181,7 @@ export async function seed() {
       classRepo.create({
         name: 'Grade 10 - Mathematics',
         teacher: teacher1,
-        session: new Date('2026-09-01'),
+        session: '2026-09-01',
       }),
     );
 
@@ -189,7 +189,7 @@ export async function seed() {
       classRepo.create({
         name: 'Grade 11 - Advanced Physics',
         teacher: teacher1,
-        session: new Date('2026-09-01'),
+        session: '2026-09-01',
       }),
     );
 
@@ -197,7 +197,7 @@ export async function seed() {
       classRepo.create({
         name: 'Grade 9 - English Literature',
         teacher: teacher2,
-        session: new Date('2026-09-01'),
+        session: '2026-09-01',
       }),
     );
     console.log('   ✓ Seeded 3 classes');

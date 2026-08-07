@@ -1,5 +1,10 @@
-import { IsDate, IsString, MinLength, MaxLength } from 'class-validator';
-import { Type } from 'class-transformer';
+import {
+  IsDateString,
+  IsString,
+  Matches,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
 
 export class CreateClassDto {
   @IsString()
@@ -7,7 +12,9 @@ export class CreateClassDto {
   @MaxLength(30)
   name: string;
 
-  @Type(() => Date)
-  @IsDate()
-  session: Date;
+  @IsDateString({ strict: true })
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, {
+    message: 'session must be a date in YYYY-MM-DD format',
+  })
+  session: string;
 }

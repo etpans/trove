@@ -31,7 +31,7 @@ export class Class {
   students: Student[];
 
   @Column({ type: 'date' })
-  session: Date;
+  session: string;
 
   @CreateDateColumn()
   createdAt: Date;
