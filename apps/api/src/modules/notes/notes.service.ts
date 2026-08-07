@@ -263,6 +263,15 @@ export class NotesService {
 
   async createShareLink(teacherId: string, noteId: number) {
     const note = await this.findOne(teacherId, noteId);
+    const existingShareLink = await this.shareLinkRepo.findOne({
+      where: {
+        noteId: note.id,
+      },
+    });
+
+    if (existingShareLink) {
+      return existingShareLink;
+    }
 
     const shareLink = this.shareLinkRepo.create({
       note,
