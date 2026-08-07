@@ -1,17 +1,9 @@
 "use client";
 
-import {
-  QueryClient,
-  QueryClientProvider,
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
-import { useState } from "react";
 
 type SharedNote = {
-  likeCount: number;
   note: {
     content: string | null;
     createdAt?: string;
@@ -30,10 +22,6 @@ type SharedNote = {
   };
 };
 
-type LikeResponse = {
-  likeCount: number;
-};
-
 async function fetchSharedNote(token: string) {
   const response = await fetch(`/api/share/${token}`);
   const data = await response.json().catch(() => ({}));
@@ -47,35 +35,11 @@ async function fetchSharedNote(token: string) {
   return data as SharedNote;
 }
 
-async function likeSharedNote(token: string) {
-  const response = await fetch(`/api/share/${token}/like`, {
-    method: "POST",
-  });
-  const data = await response.json().catch(() => ({}));
-
-  if (!response.ok) {
-    throw new Error(
-      typeof data.message === "string" ? data.message : "Unable to like note.",
-    );
-  }
-
-  return data as LikeResponse;
-}
-
-function SharedNoteContent({ token }: { token: string }) {
-  const queryClient = useQueryClient();
+export default function SharedNoteClient({ token }: { token: string }) {
   const sharedNoteQuery = useQuery({
     queryFn: () => fetchSharedNote(token),
     queryKey: ["shared-note", token],
     retry: false,
-  });
-  const likeMutation = useMutation({
-    mutationFn: () => likeSharedNote(token),
-    onSuccess: (data) => {
-      queryClient.setQueryData<SharedNote>(["shared-note", token], (current) =>
-        current ? { ...current, likeCount: data.likeCount } : current,
-      );
-    },
   });
   const sharedNote = sharedNoteQuery.data;
 
@@ -128,25 +92,6 @@ function SharedNoteContent({ token }: { token: string }) {
                 ))}
               </div>
             ) : null}
-            <div className="mt-8 flex items-center gap-3 border-t border-[#e7e5df] pt-5">
-              <button
-                className="rounded-md border border-[#111111] bg-[#111111] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#333333] disabled:cursor-not-allowed disabled:opacity-60"
-                disabled={likeMutation.isPending}
-                onClick={() => likeMutation.mutate()}
-                type="button"
-              >
-                Like
-              </button>
-              <p className="text-sm text-[#4d4d4d]">
-                {sharedNote.likeCount}{" "}
-                {sharedNote.likeCount === 1 ? "like" : "likes"}
-              </p>
-            </div>
-            {likeMutation.isError ? (
-              <p className="mt-3 text-sm text-[#8a3517]">
-                {likeMutation.error.message}
-              </p>
-            ) : null}
           </article>
         ) : (
           <section className="mt-10 rounded-lg border border-[#e7e5df] bg-white p-7 text-sm text-[#6b6b6b]">
@@ -155,15 +100,5 @@ function SharedNoteContent({ token }: { token: string }) {
         )}
       </div>
     </main>
-  );
-}
-
-export default function SharedNoteClient({ token }: { token: string }) {
-  const [queryClient] = useState(() => new QueryClient());
-
-  return (
-    <QueryClientProvider client={queryClient}>
-      <SharedNoteContent token={token} />
-    </QueryClientProvider>
   );
 }

@@ -109,9 +109,4 @@ export class PublicShareController {
   getSharedNote(@Param('token') token: string) {
     return this.notesService.getSharedNote(token);
   }
-
-  @Post(':token/like')
-  likeSharedNote(@Param('token') token: string) {
-    return this.notesService.likeSharedNote(token);
-  }
 }

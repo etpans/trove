@@ -32,9 +32,6 @@ export class ShareLinkEntity {
   @Column({ default: false })
   allowComments: boolean;
 
-  @Column({ default: 0 })
-  likeCount: number;
-
   @Column({ type: 'timestamptz', nullable: true })
   expiresAt: Date | null;
 
