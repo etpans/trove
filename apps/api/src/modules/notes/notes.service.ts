@@ -103,6 +103,10 @@ export class NotesService {
         subject: true,
         tags: true,
         attachments: true,
+        shareLinks: true,
+      },
+      order: {
+        createdAt: 'DESC',
       },
     });
   }
@@ -118,6 +122,7 @@ export class NotesService {
         subject: true,
         tags: true,
         attachments: true,
+        shareLinks: true,
       },
     });
 
