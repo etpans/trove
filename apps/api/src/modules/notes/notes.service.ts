@@ -323,4 +323,22 @@ export class NotesService {
 
     return shareLink;
   }
+
+  async likeSharedNote(token: string) {
+    const shareLink = await this.shareLinkRepo.findOne({
+      where: { token, isActive: true },
+    });
+
+    if (!shareLink) {
+      throw new NotFoundException('Shared link not found or inactive');
+    }
+
+    if (shareLink.expiresAt && shareLink.expiresAt < new Date()) {
+      throw new NotFoundException('Shared link has expired');
+    }
+
+    await this.shareLinkRepo.increment({ id: shareLink.id }, 'likeCount', 1);
+
+    return { likeCount: shareLink.likeCount + 1 };
+  }
 }
