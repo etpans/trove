@@ -16,8 +16,6 @@ type AuthFormProps = {
   onModeChange: (mode: AuthMode) => void;
 };
 
-type FocusedField = string | null;
-
 type AuthApiResponse = {
   cooldownSeconds?: number;
   message?: string;
@@ -82,7 +80,6 @@ export default function AuthForm({ mode, onModeChange }: AuthFormProps) {
   const router = useRouter();
   const [form, setForm] = useState(emptyAuthForm);
   const [error, setError] = useState("");
-  const [focusedField, setFocusedField] = useState<FocusedField>(null);
   const [isSubmitting, setSubmitting] = useState(false);
   const [pendingVerificationEmail, setPendingVerificationEmail] = useState("");
   const [resendCooldown, setResendCooldown] = useState(0);
@@ -208,7 +205,6 @@ export default function AuthForm({ mode, onModeChange }: AuthFormProps) {
     onModeChange(mode === "signup" ? "login" : "signup");
     setForm(emptyAuthForm);
     setError("");
-    setFocusedField(null);
     setPendingVerificationEmail("");
     setResendCooldown(0);
     setSuccessMessage("");
@@ -245,8 +241,6 @@ export default function AuthForm({ mode, onModeChange }: AuthFormProps) {
               label="Name"
               name="name"
               value={form.name}
-              focusedField={focusedField}
-              setFocusedField={setFocusedField}
               onChange={(value) =>
                 setForm((current) => ({
                   ...current,
@@ -263,8 +257,6 @@ export default function AuthForm({ mode, onModeChange }: AuthFormProps) {
             name="email"
             type="email"
             value={form.email}
-            focusedField={focusedField}
-            setFocusedField={setFocusedField}
             onChange={(value) =>
               setForm((current) => ({
                 ...current,
@@ -280,8 +272,6 @@ export default function AuthForm({ mode, onModeChange }: AuthFormProps) {
             name="password"
             type="password"
             value={form.password}
-            focusedField={focusedField}
-            setFocusedField={setFocusedField}
             onChange={(value) =>
               setForm((current) => ({
                 ...current,

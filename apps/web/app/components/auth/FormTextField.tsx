@@ -1,11 +1,7 @@
-import TextField from "@mui/material/TextField";
-
 type FormTextFieldProps = {
   label: string;
   name: string;
   value: string;
-  focusedField: string | null;
-  setFocusedField: (field: string | null) => void;
   onChange: (value: string) => void;
   required?: boolean;
   placeholder?: string;
@@ -18,8 +14,6 @@ export default function FormTextField({
   label,
   name,
   value,
-  focusedField,
-  setFocusedField,
   onChange,
   required = false,
   placeholder,
@@ -29,6 +23,7 @@ export default function FormTextField({
 }: FormTextFieldProps) {
   const fieldLabelClassName =
     "mb-1.5 block text-left text-[12px] font-medium tracking-[0.01em] text-[#6b6b6b]";
+  const helperTextId = helperText ? `${name}-helper-text` : undefined;
 
   return (
     <label className="block text-left">
@@ -36,54 +31,35 @@ export default function FormTextField({
         {label} {required && "*"}
       </span>
 
-      <TextField
-        error={error}
-        fullWidth
-        helperText={helperText}
+      <input
+        aria-describedby={helperTextId}
+        aria-invalid={error || undefined}
+        className={[
+          "h-12 w-full rounded-[10px] border bg-white px-[14px] text-sm text-[#111111] outline-none transition",
+          "placeholder:opacity-0 placeholder:transition-opacity placeholder:duration-150 focus:placeholder:opacity-100",
+          error
+            ? "border-[#b42318] focus:border-[#b42318]"
+            : "border-[#d7dce5] hover:border-[#c5ccd8] focus:border-[#378ADD]",
+        ].join(" ")}
         name={name}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder ?? `Your ${label.toLowerCase()}`}
+        required={required}
         type={type}
         value={value}
-        onChange={(event) => onChange(event.target.value)}
-        onFocus={() => setFocusedField(name)}
-        onBlur={() => setFocusedField(null)}
-        placeholder={
-          focusedField === name
-            ? (placeholder ?? `Your ${label.toLowerCase()}`)
-            : ""
-        }
-        size="small"
-        variant="outlined"
-        sx={{
-          "& .MuiFormHelperText-root": {
-            ml: 0,
-            mt: 1,
-            fontSize: "12px",
-          },
-          "& .MuiOutlinedInput-input": {
-            color: "#111111",
-            padding: "0 14px",
-            height: "48px",
-            boxSizing: "border-box",
-          },
-          "& .MuiOutlinedInput-root": {
-            minHeight: "48px",
-            borderRadius: "10px",
-            backgroundColor: "#ffffff",
-
-            "& fieldset": {
-              borderColor: "#d7dce5",
-            },
-
-            "&:hover fieldset": {
-              borderColor: "#c5ccd8",
-            },
-
-            "&.Mui-focused fieldset": {
-              borderColor: "#378ADD",
-            },
-          },
-        }}
       />
+
+      {helperText ? (
+        <p
+          className={[
+            "mt-1 text-left text-[12px]",
+            error ? "text-[#b42318]" : "text-transparent",
+          ].join(" ")}
+          id={helperTextId}
+        >
+          {helperText}
+        </p>
+      ) : null}
     </label>
   );
 }
