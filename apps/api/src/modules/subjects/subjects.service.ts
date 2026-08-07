@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CreateSubjectDto } from './dto/create-subject.dto';
@@ -12,8 +12,11 @@ export class SubjectsService {
     private readonly subjectsRepo: Repository<Subject>,
   ) {}
 
-  async create(dto: CreateSubjectDto) {
-    const subject = this.subjectsRepo.create(dto);
+  async create(teacherId: string, dto: CreateSubjectDto) {
+    const subject = this.subjectsRepo.create({
+      ...dto,
+      teacherId,
+    });
     return this.subjectsRepo.save(subject);
   }
 
@@ -32,22 +35,22 @@ export class SubjectsService {
       where: { id, teacher: { id: teacherId } },
     });
 
+    if (!subject) {
+      throw new NotFoundException('Subject not found');
+    }
+
     return subject;
   }
 
   async update(teacherId: string, id: number, dto: UpdateSubjectDto) {
-    const result = await this.subjectsRepo.update(id, dto);
-
-    if (!result.affected) return null;
+    await this.findOne(teacherId, id);
+    await this.subjectsRepo.update({ id, teacherId }, dto);
 
     return this.findOne(teacherId, id);
   }
 
   async remove(teacherId: string, id: number) {
     const subject = await this.findOne(teacherId, id);
-
-    if (!subject) return null;
-
     await this.subjectsRepo.remove(subject);
 
     return { deleted: true };
