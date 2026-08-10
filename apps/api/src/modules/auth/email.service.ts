@@ -20,16 +20,28 @@ export class EmailService {
     });
   }
 
-  async sendVerificationEmail(to: string, token: string): Promise<void> {
-    const url = `${this.config.get('FRONTEND_URL')}/verify-email?token=${token}`;
+  async sendVerificationCode(to: string, code: string): Promise<void> {
     await this.transporter.sendMail({
       from: this.config.get('SMTP_FROM'),
       to,
       subject: 'Verify your email address',
       html: `
-        <p>Thanks for signing up. Click the link below to verify your email.</p>
-        <a href="${url}">Verify email</a>
-        <p>This link expires in 24 hours.</p>
+        <p>Thanks for signing up. Enter this code to verify your email:</p>
+        <p style="font-size: 24px; font-weight: 700; letter-spacing: 6px;">${code}</p>
+        <p>This code expires in 10 minutes.</p>
+      `,
+    });
+  }
+
+  async sendPasswordResetCode(to: string, code: string): Promise<void> {
+    await this.transporter.sendMail({
+      from: this.config.get('SMTP_FROM'),
+      to,
+      subject: 'Reset your password',
+      html: `
+        <p>Enter this code to reset your password:</p>
+        <p style="font-size: 24px; font-weight: 700; letter-spacing: 6px;">${code}</p>
+        <p>This code expires in 10 minutes. If you did not request it, you can ignore this email.</p>
       `,
     });
   }
