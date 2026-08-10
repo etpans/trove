@@ -4,6 +4,7 @@ import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { AppModule } from './../src/app.module';
 import { EmailService } from '../src/modules/auth/email.service';
+import { TurnstileGuard } from '../src/modules/auth/strategies/turnstile.guard';
 import { User } from '../src/modules/auth/user.entity';
 import { RefreshToken } from '../src/modules/auth/refresh-token.entity';
 import { Subject } from '../src/modules/subjects/entities/subject.entity';
@@ -91,6 +92,8 @@ describe('API (e2e)', () => {
     })
       .overrideProvider(EmailService)
       .useValue(emailServiceMock)
+      .overrideProvider(TurnstileGuard)
+      .useValue({ canActivate: jest.fn(() => true) })
       .compile();
 
     app = moduleFixture.createNestApplication();

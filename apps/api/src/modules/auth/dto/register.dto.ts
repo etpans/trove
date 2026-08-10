@@ -2,6 +2,7 @@ import {
   IsEmail,
   IsString,
   IsNotEmpty,
+  IsOptional,
   MinLength,
   MaxLength,
   Matches,
@@ -26,4 +27,9 @@ export class RegisterDto {
   @MinLength(8)
   @MaxLength(72)
   password: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @IsOptional()
+  'cf-turnstile-response'?: string;
 }
