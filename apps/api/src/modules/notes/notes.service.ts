@@ -90,7 +90,8 @@ export class NotesService {
       tags,
     });
 
-    return this.noteRepo.save(note);
+    const saved = await this.noteRepo.save(note);
+    return this.findOne(teacherId, saved.id);
   }
 
   async findAll(teacherId: string) {
