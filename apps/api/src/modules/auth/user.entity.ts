@@ -30,16 +30,35 @@ export class User {
 
   @Index()
   @Column({ nullable: true, select: false })
-  verificationToken?: string;
+  verificationCodeHash?: string | null;
 
   @Column({ type: 'timestamptz', nullable: true })
-  verificationExpiry?: Date;
+  verificationCodeExpiry?: Date | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  verificationCodeSentAt?: Date | null;
+
+  @Column({ default: 0 })
+  verificationCodeAttempts: number;
+
+  @Index()
+  @Column({ nullable: true, select: false })
+  passwordResetCodeHash?: string | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  passwordResetCodeExpiry?: Date | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  passwordResetCodeSentAt?: Date | null;
+
+  @Column({ default: 0 })
+  passwordResetCodeAttempts: number;
 
   @Column({ default: 0 })
   failedLoginAttempts: number;
 
   @Column({ type: 'timestamptz', nullable: true })
-  lockedUntil?: Date;
+  lockedUntil?: Date | null;
 
   // TODO: change this to include student entity; teacher -> students -> notes
   // @OneToMany(() => Note, (note) => note.teacher, { cascade: true })
