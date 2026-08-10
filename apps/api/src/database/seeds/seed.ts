@@ -50,7 +50,11 @@ export async function seed() {
     await classRepo.createQueryBuilder().delete().where('1 = 1').execute();
     await subjectRepo.createQueryBuilder().delete().where('1 = 1').execute();
     await tagRepo.createQueryBuilder().delete().where('1 = 1').execute();
-    await refreshTokenRepo.createQueryBuilder().delete().where('1 = 1').execute();
+    await refreshTokenRepo
+      .createQueryBuilder()
+      .delete()
+      .where('1 = 1')
+      .execute();
     await userRepo.createQueryBuilder().delete().where('1 = 1').execute();
 
     console.log('👤 Seeding Users (Teachers)...');
@@ -180,6 +184,7 @@ export async function seed() {
     const classMath10 = await classRepo.save(
       classRepo.create({
         name: 'Grade 10 - Mathematics',
+        color: '#2563EB',
         teacher: teacher1,
         session: new Date('2026-09-01'),
       }),
@@ -188,6 +193,7 @@ export async function seed() {
     const classPhysics11 = await classRepo.save(
       classRepo.create({
         name: 'Grade 11 - Advanced Physics',
+        color: '#7C3AED',
         teacher: teacher1,
         session: new Date('2026-09-01'),
       }),
@@ -196,6 +202,7 @@ export async function seed() {
     const classEnglish9 = await classRepo.save(
       classRepo.create({
         name: 'Grade 9 - English Literature',
+        color: '#DB2777',
         teacher: teacher2,
         session: new Date('2026-09-01'),
       }),

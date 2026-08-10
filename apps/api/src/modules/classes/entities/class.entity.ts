@@ -19,6 +19,9 @@ export class Class {
   @Column()
   name: string;
 
+  @Column({ default: '#3B82F6' })
+  color: string;
+
   @Index()
   @Column()
   teacherId: string;

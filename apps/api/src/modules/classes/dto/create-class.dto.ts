@@ -1,4 +1,11 @@
-import { IsDate, IsString, MinLength, MaxLength } from 'class-validator';
+import {
+  IsDate,
+  IsHexColor,
+  IsOptional,
+  IsString,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 
 export class CreateClassDto {
@@ -11,4 +18,8 @@ export class CreateClassDto {
   @Type(() => Date)
   @IsDate()
   session: Date;
+
+  @IsHexColor({ message: 'color must be valid hex color' })
+  @IsOptional()
+  color?: string;
 }

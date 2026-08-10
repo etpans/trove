@@ -1,6 +1,5 @@
 import {
   Injectable,
-  ForbiddenException,
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
@@ -10,6 +9,17 @@ import { Repository } from 'typeorm';
 import { Class } from './entities/class.entity';
 import { CreateClassDto } from './dto/create-class.dto';
 import { UpdateClassDto } from './dto/update-class.dto';
+
+const CLASS_COLORS = [
+  '#2563EB',
+  '#059669',
+  '#D97706',
+  '#DC2626',
+  '#7C3AED',
+  '#0891B2',
+  '#DB2777',
+  '#4F46E5',
+];
 
 @Injectable()
 export class ClassesService {
@@ -29,6 +39,9 @@ export class ClassesService {
 
     const classEntity = this.classRepo.create({
       ...createClassDto,
+      color:
+        createClassDto.color ??
+        CLASS_COLORS[Math.floor(Math.random() * CLASS_COLORS.length)],
       teacher,
     });
 
