@@ -6,6 +6,7 @@ dist
 .next
 out
 .expo
+uploads
 
 # Environment variables
 .env
@@ -24,4 +25,3 @@ Thumbs.db
 *.log
 npm-debug.log*
 pnpm-debug.log*
-

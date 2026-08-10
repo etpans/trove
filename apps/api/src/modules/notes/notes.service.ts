@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { CreateNoteDto } from './dto/create-note.dto';
@@ -219,10 +223,13 @@ export class NotesService {
   ) {
     const note = await this.findOne(teacherId, noteId);
 
-    // TODO: cloud upload to url to update fileUrl
+    if (!file) {
+      throw new BadRequestException('Attachment file is required');
+    }
+
     const attachment = this.attachmentRepo.create({
       note,
-      fileUrl: file.path,
+      fileUrl: `/uploads/note-attachments/${file.filename}`,
       fileType: file.mimetype,
       caption: caption ?? null,
     });
