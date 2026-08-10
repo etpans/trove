@@ -35,13 +35,13 @@ export class TagsService {
       where: { id, teacher: { id: teacherId } },
     });
 
+    if (!tag) throw new NotFoundException('Tag not found');
+
     return tag;
   }
 
   async update(teacherId: string, id: number, updateTagDto: UpdateTagDto) {
     const tag = await this.findOne(teacherId, id);
-
-    if (!tag) throw new NotFoundException('Tag not found');
 
     Object.assign(tag, updateTagDto);
     return this.tagRepo.save(tag);
@@ -49,8 +49,6 @@ export class TagsService {
 
   async remove(teacherId: string, id: number) {
     const tag = await this.findOne(teacherId, id);
-
-    if (!tag) throw new NotFoundException('Tag not found');
 
     await this.tagRepo.remove(tag);
 
