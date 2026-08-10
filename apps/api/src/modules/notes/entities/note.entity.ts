@@ -39,7 +39,7 @@ export class Note {
 
   @Index()
   @Column({ nullable: true })
-  subjectId?: number;
+  subjectId?: number | null;
 
   @OneToMany(() => NoteAttachmentEntity, (a) => a.note, { cascade: true })
   attachments: NoteAttachmentEntity[];
@@ -52,7 +52,7 @@ export class Note {
     nullable: true,
   })
   @JoinColumn({ name: 'subjectId' })
-  subject?: Subject;
+  subject?: Subject | null;
 
   @Index()
   @Column()
