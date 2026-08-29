@@ -29,7 +29,7 @@ export class User {
   isVerified: boolean;
 
   @Index()
-  @Column({ nullable: true, select: false })
+  @Column({ type: 'varchar', nullable: true, select: false })
   verificationCodeHash?: string | null;
 
   @Column({ type: 'timestamptz', nullable: true })
@@ -42,7 +42,7 @@ export class User {
   verificationCodeAttempts: number;
 
   @Index()
-  @Column({ nullable: true, select: false })
+  @Column({ type: 'varchar', nullable: true, select: false })
   passwordResetCodeHash?: string | null;
 
   @Column({ type: 'timestamptz', nullable: true })

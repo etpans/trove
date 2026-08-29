@@ -38,7 +38,7 @@ export class Note {
   student: Student;
 
   @Index()
-  @Column({ nullable: true })
+  @Column({ type: 'int', nullable: true })
   subjectId?: number | null;
 
   @OneToMany(() => NoteAttachmentEntity, (a) => a.note, { cascade: true })
