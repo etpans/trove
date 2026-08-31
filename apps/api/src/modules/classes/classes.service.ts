@@ -21,6 +21,8 @@ const CLASS_COLORS = [
   '#4F46E5',
 ];
 
+const toDateColumnValue = (date: Date) => date.toISOString().slice(0, 10);
+
 @Injectable()
 export class ClassesService {
   constructor(
@@ -38,7 +40,8 @@ export class ClassesService {
     }
 
     const classEntity = this.classRepo.create({
-      ...createClassDto,
+      name: createClassDto.name,
+      session: toDateColumnValue(createClassDto.session),
       color:
         createClassDto.color ??
         CLASS_COLORS[Math.floor(Math.random() * CLASS_COLORS.length)],
@@ -82,7 +85,12 @@ export class ClassesService {
       throw new BadRequestException('No fields provided for update');
     }
 
-    const result = await this.classRepo.update(id, dto);
+    const updateData: Partial<Class> = {
+      ...dto,
+      session: dto.session ? toDateColumnValue(dto.session) : undefined,
+    };
+
+    const result = await this.classRepo.update(id, updateData);
 
     if (!result.affected) return null;
 

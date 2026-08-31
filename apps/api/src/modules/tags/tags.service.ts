@@ -35,7 +35,9 @@ export class TagsService {
       where: { id, teacher: { id: teacherId } },
     });
 
-    if (!tag) throw new NotFoundException('Tag not found');
+    if (!tag) {
+      throw new NotFoundException('Tag not found');
+    }
 
     return tag;
   }

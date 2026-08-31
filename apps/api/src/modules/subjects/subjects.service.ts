@@ -35,7 +35,9 @@ export class SubjectsService {
       where: { id, teacher: { id: teacherId } },
     });
 
-    if (!subject) throw new NotFoundException('Subject not found');
+    if (!subject) {
+      throw new NotFoundException('Subject not found');
+    }
 
     return subject;
   }

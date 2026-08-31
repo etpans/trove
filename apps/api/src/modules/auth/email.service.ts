@@ -9,22 +9,31 @@ export class EmailService {
   constructor(private config: ConfigService) {
     this.transporter = nodemailer.createTransport({
       host: config.get('SMTP_HOST'),
-      port: config.get<number>('SMTP_PORT'),
+      port: Number(config.get('SMTP_PORT')),
       auth: {
         user: config.get('SMTP_USER'),
         pass: config.get('SMTP_PASS'),
       },
-      connectionTimeout: 500, // 5s
-      greetingTimeout: 500,
-      socketTimeout: 500,
+      connectionTimeout: 5000,
+      greetingTimeout: 5000,
+      socketTimeout: 5000,
     });
   }
 
   async sendVerificationCode(to: string, code: string): Promise<void> {
     await this.transporter.sendMail({
-      from: this.config.get('SMTP_FROM'),
+      from:
+        this.config.get<string>('SMTP_FROM') ?? 'trove <no-reply@trove.app>',
       to,
-      subject: 'Verify your email address',
+      subject: 'Verify your trove email',
+      text: [
+        'Welcome to trove.',
+        '',
+        'Enter this code to verify your email address:',
+        code,
+        '',
+        'This code expires in 10 minutes.',
+      ].join('\n'),
       html: `
         <p>Thanks for signing up. Enter this code to verify your email:</p>
         <p style="font-size: 24px; font-weight: 700; letter-spacing: 6px;">${code}</p>

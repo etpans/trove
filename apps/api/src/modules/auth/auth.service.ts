@@ -1,17 +1,19 @@
 import {
-  Injectable,
-  ConflictException,
-  UnauthorizedException,
-  ForbiddenException,
   BadRequestException,
+  ConflictException,
+  ForbiddenException,
   HttpException,
   HttpStatus,
+  Injectable,
+  OnModuleDestroy,
+  OnModuleInit,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { LessThan, Repository } from 'typeorm';
 import { User } from './user.entity';
 import { RegisterDto } from './dto/register.dto';
 import { EmailService } from './email.service';
@@ -24,12 +26,20 @@ const hash = (val: string) =>
 const CODE_EXPIRY_MS = 10 * 60 * 1000;
 const CODE_RESEND_COOLDOWN_MS = 60 * 1000;
 const MAX_CODE_ATTEMPTS = 5;
+const EXPIRED_ACCOUNT_CLEANUP_INTERVAL_MS = 60 * 60 * 1000;
+
+export type AuthenticatedUser = {
+  id: string;
+  email: string;
+};
 
 const createCode = () =>
   crypto.randomInt(0, 1_000_000).toString().padStart(6, '0');
 
 @Injectable()
-export class AuthService {
+export class AuthService implements OnModuleInit, OnModuleDestroy {
+  private cleanupTimer?: NodeJS.Timeout;
+
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
@@ -39,6 +49,19 @@ export class AuthService {
     @InjectRepository(RefreshToken)
     private readonly rtRepository: Repository<RefreshToken>,
   ) {}
+
+  onModuleInit() {
+    void this.deleteExpiredUnverifiedUsers();
+    this.cleanupTimer = setInterval(() => {
+      void this.deleteExpiredUnverifiedUsers();
+    }, EXPIRED_ACCOUNT_CLEANUP_INTERVAL_MS);
+  }
+
+  onModuleDestroy() {
+    if (this.cleanupTimer) {
+      clearInterval(this.cleanupTimer);
+    }
+  }
 
   async register(dto: RegisterDto) {
     const exists = await this.userRepository.existsBy({ email: dto.email });
@@ -118,15 +141,20 @@ export class AuthService {
   }
 
   // TODO: think about what if the user has multiple devices or somehow logins again
-  async validateUser(email: string, password: string) {
+  async validateUser(
+    email: string,
+    password: string,
+  ): Promise<AuthenticatedUser> {
+    const normalizedEmail = email.toLowerCase().trim();
     const user = await this.userRepository.findOne({
-      where: { email },
+      where: { email: normalizedEmail },
       select: {
         id: true,
         email: true,
+        failedLoginAttempts: true,
         password: true,
         isVerified: true,
-        failedLoginAttempts: true,
+        verificationCodeExpiry: true,
         lockedUntil: true,
       },
     });
@@ -134,6 +162,13 @@ export class AuthService {
 
     if (user.lockedUntil && user.lockedUntil > new Date())
       throw new ForbiddenException('Account locked. Try again later.');
+
+    if (!user.isVerified && this.isVerificationExpired(user)) {
+      await this.userRepository.delete({ id: user.id });
+      throw new ForbiddenException(
+        'Verification code expired. Your unverified account has been deleted. Please sign up again.',
+      );
+    }
 
     const valid = await bcrypt.compare(password, user.password);
     if (!valid) {
@@ -153,11 +188,10 @@ export class AuthService {
     if (!user.isVerified)
       throw new ForbiddenException('Please verify your email first.');
 
-    const { password: _, ...result } = user as any;
-    return result;
+    return { email: user.email, id: user.id };
   }
 
-  async login(user: any) {
+  async login(user: AuthenticatedUser) {
     const payload = { sub: user.id, email: user.email };
     const accessToken = this.jwtService.sign(payload, { expiresIn: '15m' });
 
@@ -186,6 +220,8 @@ export class AuthService {
     await this.rtRepository.save(rt);
 
     const user = await this.userRepository.findOneBy({ id: rt.userId });
+    if (!user) throw new UnauthorizedException('Invalid refresh token');
+
     return this.login(user);
   }
 
@@ -289,5 +325,18 @@ export class AuthService {
         HttpStatus.TOO_MANY_REQUESTS,
       );
     }
+  }
+
+  private isVerificationExpired(user: User) {
+    return Boolean(
+      user.verificationCodeExpiry && user.verificationCodeExpiry < new Date(),
+    );
+  }
+
+  private async deleteExpiredUnverifiedUsers() {
+    await this.userRepository.delete({
+      isVerified: false,
+      verificationCodeExpiry: LessThan(new Date()),
+    });
   }
 }

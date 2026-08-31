@@ -186,7 +186,7 @@ export async function seed() {
         name: 'Grade 10 - Mathematics',
         color: '#2563EB',
         teacher: teacher1,
-        session: new Date('2026-09-01'),
+        session: '2026-09-01',
       }),
     );
 
@@ -195,7 +195,7 @@ export async function seed() {
         name: 'Grade 11 - Advanced Physics',
         color: '#7C3AED',
         teacher: teacher1,
-        session: new Date('2026-09-01'),
+        session: '2026-09-01',
       }),
     );
 
@@ -204,7 +204,7 @@ export async function seed() {
         name: 'Grade 9 - English Literature',
         color: '#DB2777',
         teacher: teacher2,
-        session: new Date('2026-09-01'),
+        session: '2026-09-01',
       }),
     );
     console.log('   ✓ Seeded 3 classes');
