@@ -18,6 +18,13 @@ import { CreateNoteDto } from './dto/create-note.dto';
 import { UpdateNoteDto } from './dto/update-note.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
 
+const NOTE_ATTACHMENT_UPLOAD_OPTIONS = {
+  storage: memoryStorage(),
+  limits: {
+    fileSize: 10 * 1024 * 1024,
+  },
+};
+
 @UseGuards(AuthGuard('jwt'))
 @Controller('notes')
 export class NotesController {
@@ -62,14 +69,7 @@ export class NotesController {
   }
 
   @Post(':id/attachments')
-  @UseInterceptors(
-    FileInterceptor('file', {
-      storage: memoryStorage(),
-      limits: {
-        fileSize: 10 * 1024 * 1024,
-      },
-    }),
-  )
+  @UseInterceptors(FileInterceptor('file', NOTE_ATTACHMENT_UPLOAD_OPTIONS))
   uploadAttachment(
     @Request() req: { user: { userId: string } },
     @Param('id') id: string,
@@ -77,6 +77,23 @@ export class NotesController {
     @Body('caption') caption?: string,
   ) {
     return this.notesService.addAttachment(req.user.userId, +id, file, caption);
+  }
+
+  @Patch(':noteId/attachments/:attachmentId')
+  @UseInterceptors(FileInterceptor('file', NOTE_ATTACHMENT_UPLOAD_OPTIONS))
+  updateAttachment(
+    @Request() req: { user: { userId: string } },
+    @Param('noteId') noteId: string,
+    @Param('attachmentId') attachmentId: string,
+    @UploadedFile() file?: Express.Multer.File,
+    @Body('caption') caption?: string,
+  ) {
+    return this.notesService.updateAttachment(
+      req.user.userId,
+      +noteId,
+      attachmentId,
+      { file, caption },
+    );
   }
 
   @Delete(':noteId/attachments/:attachmentId')

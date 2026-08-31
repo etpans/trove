@@ -279,6 +279,73 @@ export class NotesService {
     return { deleted: true };
   }
 
+  async updateAttachment(
+    teacherId: string,
+    noteId: number,
+    attachmentId: string,
+    update: { file?: Express.Multer.File; caption?: string },
+  ) {
+    if (!update.file && update.caption === undefined) {
+      throw new BadRequestException('No attachment updates provided');
+    }
+
+    if (update.file && !update.file.buffer) {
+      throw new BadRequestException('Attachment file is required');
+    }
+
+    const attachment = await this.attachmentRepo.findOne({
+      where: {
+        id: attachmentId,
+        note: {
+          id: noteId,
+          teacherId,
+        },
+      },
+      relations: {
+        note: true,
+      },
+    });
+
+    if (!attachment) {
+      throw new NotFoundException('Attachment not found');
+    }
+
+    if (update.caption !== undefined) {
+      attachment.caption = update.caption || null;
+    }
+
+    let uploaded:
+      | Awaited<ReturnType<S3AttachmentStorageService['uploadNoteAttachment']>>
+      | undefined;
+    const previousFileKey = attachment.fileKey;
+
+    if (update.file) {
+      uploaded = await this.attachmentStorage.uploadNoteAttachment({
+        teacherId,
+        noteId,
+        file: update.file,
+      });
+      attachment.fileUrl = uploaded.fileUrl;
+      attachment.fileKey = uploaded.fileKey;
+      attachment.fileType = update.file.mimetype;
+    }
+
+    try {
+      const saved = await this.attachmentRepo.save(attachment);
+
+      if (uploaded) {
+        await this.attachmentStorage.deleteObject(previousFileKey);
+      }
+
+      return saved;
+    } catch (error) {
+      if (uploaded) {
+        await this.attachmentStorage.deleteObject(uploaded.fileKey);
+      }
+      throw error;
+    }
+  }
+
   async createShareLink(teacherId: string, noteId: number) {
     const note = await this.findOne(teacherId, noteId);
     const existingShareLink = await this.shareLinkRepo.findOne({
