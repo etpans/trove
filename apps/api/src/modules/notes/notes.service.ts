@@ -14,6 +14,7 @@ import { Tag } from '../tags/entities/tag.entity';
 import { NoteAttachmentEntity } from './entities/note-attachment.entity';
 import { ShareLinkEntity } from './entities/share-link.entity';
 import { randomUUID } from 'crypto';
+import { S3AttachmentStorageService } from './s3-attachment-storage.service';
 
 @Injectable()
 export class NotesService {
@@ -30,6 +31,7 @@ export class NotesService {
     private readonly attachmentRepo: Repository<NoteAttachmentEntity>,
     @InjectRepository(ShareLinkEntity)
     private readonly shareLinkRepo: Repository<ShareLinkEntity>,
+    private readonly attachmentStorage: S3AttachmentStorageService,
   ) {}
 
   async create(teacherId: string, createNoteDto: CreateNoteDto) {
@@ -228,13 +230,20 @@ export class NotesService {
   ) {
     const note = await this.findOne(teacherId, noteId);
 
-    if (!file) {
+    if (!file || !file.buffer) {
       throw new BadRequestException('Attachment file is required');
     }
 
+    const uploaded = await this.attachmentStorage.uploadNoteAttachment({
+      teacherId,
+      noteId,
+      file,
+    });
+
     const attachment = this.attachmentRepo.create({
       note,
-      fileUrl: `/uploads/note-attachments/${file.filename}`,
+      fileUrl: uploaded.fileUrl,
+      fileKey: uploaded.fileKey,
       fileType: file.mimetype,
       caption: caption ?? null,
     });
@@ -264,6 +273,7 @@ export class NotesService {
       throw new NotFoundException('Attachment not found');
     }
 
+    await this.attachmentStorage.deleteObject(attachment.fileKey);
     await this.attachmentRepo.remove(attachment);
 
     return { deleted: true };

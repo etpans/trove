@@ -12,16 +12,11 @@ import {
   UploadedFile,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { diskStorage } from 'multer';
-import { extname } from 'path';
-import { mkdirSync } from 'fs';
-import { randomUUID } from 'crypto';
+import { memoryStorage } from 'multer';
 import { NotesService } from './notes.service';
 import { CreateNoteDto } from './dto/create-note.dto';
 import { UpdateNoteDto } from './dto/update-note.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
-
-const NOTE_ATTACHMENT_DIR = 'uploads/note-attachments';
 
 @UseGuards(AuthGuard('jwt'))
 @Controller('notes')
@@ -69,15 +64,7 @@ export class NotesController {
   @Post(':id/attachments')
   @UseInterceptors(
     FileInterceptor('file', {
-      storage: diskStorage({
-        destination: (_req, _file, cb) => {
-          mkdirSync(NOTE_ATTACHMENT_DIR, { recursive: true });
-          cb(null, NOTE_ATTACHMENT_DIR);
-        },
-        filename: (_req, file, cb) => {
-          cb(null, `${randomUUID()}${extname(file.originalname)}`);
-        },
-      }),
+      storage: memoryStorage(),
       limits: {
         fileSize: 10 * 1024 * 1024,
       },

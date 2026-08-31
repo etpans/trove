@@ -25,6 +25,9 @@ export class NoteAttachmentEntity {
   @Column()
   fileUrl: string;
 
+  @Column({ type: 'varchar', nullable: true })
+  fileKey?: string | null;
+
   @Column()
   fileType: string;
 
