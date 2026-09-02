@@ -5,6 +5,12 @@ import Link from "next/link";
 
 type SharedNote = {
   note: {
+    attachments?: Array<{
+      caption?: string | null;
+      fileType: string;
+      fileUrl: string;
+      id: string;
+    }>;
     content: string | null;
     createdAt?: string;
     student?: {
@@ -21,6 +27,38 @@ type SharedNote = {
     title: string;
   };
 };
+
+type SharedAttachment = NonNullable<SharedNote["note"]["attachments"]>[number];
+
+function isImageAttachment(attachment: SharedAttachment) {
+  return attachment.fileType.startsWith("image/");
+}
+
+function getAttachmentKind(attachment: SharedAttachment) {
+  if (attachment.fileType.startsWith("image/")) {
+    return "Image";
+  }
+
+  if (attachment.fileType === "application/pdf") {
+    return "PDF";
+  }
+
+  if (attachment.fileType.startsWith("video/")) {
+    return "Video";
+  }
+
+  if (attachment.fileType.startsWith("audio/")) {
+    return "Audio";
+  }
+
+  return "File";
+}
+
+function getAttachmentLabel(attachment: SharedAttachment, index: number) {
+  return (
+    attachment.caption?.trim() || `${getAttachmentKind(attachment)} ${index + 1}`
+  );
+}
 
 async function fetchSharedNote(token: string) {
   const response = await fetch(`/api/share/${token}`);
@@ -90,6 +128,43 @@ export default function SharedNoteClient({ token }: { token: string }) {
                     {tag.name}
                   </span>
                 ))}
+              </div>
+            ) : null}
+            {sharedNote.note.attachments?.length ? (
+              <div className="mt-7 grid gap-3 sm:grid-cols-2">
+                {sharedNote.note.attachments.map((attachment, index) => {
+                  const label = getAttachmentLabel(attachment, index);
+
+                  return (
+                    <a
+                      className="group overflow-hidden rounded-lg border border-[#d7dce5] bg-[#fafaf8] text-sm text-[#111111] transition hover:border-[#378ADD]"
+                      href={attachment.fileUrl}
+                      key={attachment.id}
+                      rel="noreferrer"
+                      target="_blank"
+                    >
+                      {isImageAttachment(attachment) ? (
+                        <div
+                          aria-label={label}
+                          className="h-40 w-full bg-white bg-cover bg-center"
+                          role="img"
+                          style={{
+                            backgroundImage: `url(${attachment.fileUrl})`,
+                          }}
+                        />
+                      ) : (
+                        <div className="flex h-40 items-center justify-center bg-white text-xs font-semibold uppercase tracking-[0.12em] text-[#6b6b6b]">
+                          {getAttachmentKind(attachment)}
+                        </div>
+                      )}
+                      <div className="border-t border-[#d7dce5] px-3 py-2">
+                        <span className="block truncate font-medium text-[#245f99] group-hover:underline">
+                          {label}
+                        </span>
+                      </div>
+                    </a>
+                  );
+                })}
               </div>
             ) : null}
           </article>
