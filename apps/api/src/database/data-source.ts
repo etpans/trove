@@ -16,6 +16,16 @@ import { ShareLinkEntity } from '../modules/notes/entities/share-link.entity';
 dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
+const getBooleanEnv = (key: string, defaultValue = false) => {
+  const value = process.env[key];
+
+  if (value === undefined) {
+    return defaultValue;
+  }
+
+  return ['1', 'true', 'yes'].includes(value.toLowerCase());
+};
+
 export const dbConfig: DataSourceOptions = {
   type: 'postgres',
   host: process.env.DB_HOST || 'localhost',
@@ -34,7 +44,8 @@ export const dbConfig: DataSourceOptions = {
     NoteAttachmentEntity,
     ShareLinkEntity,
   ],
-  synchronize: true,
+  migrations: ['src/database/migrations/*.ts'],
+  synchronize: getBooleanEnv('DB_SYNCHRONIZE'),
 };
 
 export const AppDataSource = new DataSource(dbConfig);
