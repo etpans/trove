@@ -1,15 +1,15 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
-import { NestExpressApplication } from '@nestjs/platform-express';
-import { join } from 'path';
 import { ConfigService } from '@nestjs/config';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
-  app.enableCors();
-  app.useStaticAssets(join(process.cwd(), 'uploads'), {
-    prefix: '/uploads/',
+  const app = await NestFactory.create(AppModule);
+  const config = app.get(ConfigService);
+
+  app.enableCors({
+    credentials: true,
+    origin: config.get<string>('FRONTEND_URL'),
   });
   app.useGlobalPipes(
     new ValidationPipe({
@@ -19,7 +19,6 @@ async function bootstrap() {
       transformOptions: { enableImplicitConversion: true },
     }),
   );
-  const config = app.get(ConfigService);
   await app.listen(config.get<number>('PORT') ?? 3000);
 }
 void bootstrap();
