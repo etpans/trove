@@ -20,10 +20,10 @@ function copySetCookieHeaders(source: NextResponse, target: NextResponse) {
   });
 }
 
-function getForwardedHeaders(headers?: HeadersInit) {
+function getForwardedHeaders(headers?: HeadersInit, body?: BodyInit) {
   const forwardedHeaders = new Headers(headers);
 
-  if (!forwardedHeaders.has("Content-Type")) {
+  if (!forwardedHeaders.has("Content-Type") && !(body instanceof FormData)) {
     forwardedHeaders.set("Content-Type", "application/json");
   }
 
@@ -78,7 +78,7 @@ async function fetchUpstream(
   accessToken: string,
   options: ProxyOptions,
 ) {
-  const headers = getForwardedHeaders(options.headers);
+  const headers = getForwardedHeaders(options.headers, options.body);
   headers.set("Authorization", `Bearer ${accessToken}`);
 
   return fetch(getApiUrl(path), {
