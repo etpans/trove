@@ -76,14 +76,33 @@ async function resendVerificationEmail(email: string) {
   return data;
 }
 
+async function verifyEmailCode(payload: { code: string; email: string }) {
+  const response = await fetch("/api/auth/verify-email", {
+    body: JSON.stringify(payload),
+    headers: {
+      "Content-Type": "application/json",
+    },
+    method: "POST",
+  });
+  const data = (await response.json()) as AuthApiResponse;
+
+  if (!response.ok) {
+    throw new Error(data.message ?? "Unable to verify this account.");
+  }
+
+  return data;
+}
+
 export default function AuthForm({ mode, onModeChange }: AuthFormProps) {
   const router = useRouter();
   const [form, setForm] = useState(emptyAuthForm);
   const [error, setError] = useState("");
   const [isSubmitting, setSubmitting] = useState(false);
   const [pendingVerificationEmail, setPendingVerificationEmail] = useState("");
+  const [verificationCode, setVerificationCode] = useState("");
   const [resendCooldown, setResendCooldown] = useState(0);
   const [isResending, setResending] = useState(false);
+  const [isVerifying, setVerifying] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
 
   useEffect(() => {
@@ -143,6 +162,7 @@ export default function AuthForm({ mode, onModeChange }: AuthFormProps) {
         router.push("/dashboard");
       } else if (mode === "signup") {
         setPendingVerificationEmail(submittedEmail);
+        setVerificationCode("");
         setResendCooldown(60);
       }
     } catch (submitError) {
@@ -153,6 +173,7 @@ export default function AuthForm({ mode, onModeChange }: AuthFormProps) {
 
       if (mode === "login" && message.toLowerCase().includes("verify")) {
         setPendingVerificationEmail(form.email);
+        setVerificationCode("");
       }
 
       if (
@@ -160,6 +181,7 @@ export default function AuthForm({ mode, onModeChange }: AuthFormProps) {
         message.toLowerCase().includes("resend")
       ) {
         setPendingVerificationEmail(form.email);
+        setVerificationCode("");
       }
 
       setError(
@@ -201,11 +223,48 @@ export default function AuthForm({ mode, onModeChange }: AuthFormProps) {
     }
   }
 
+  async function handleVerifyEmail(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!pendingVerificationEmail || verificationCode.trim().length !== 6) {
+      return;
+    }
+
+    setVerifying(true);
+    setError("");
+    setSuccessMessage("");
+
+    try {
+      const data = await verifyEmailCode({
+        code: verificationCode.trim(),
+        email: pendingVerificationEmail,
+      });
+      setSuccessMessage(data.message ?? "Email verified. You can sign in now.");
+      setForm({
+        ...emptyAuthForm,
+        email: pendingVerificationEmail,
+      });
+      setPendingVerificationEmail("");
+      setVerificationCode("");
+      setResendCooldown(0);
+      onModeChange("login");
+    } catch (verifyError) {
+      setError(
+        verifyError instanceof Error
+          ? verifyError.message
+          : "Unable to verify this account.",
+      );
+    } finally {
+      setVerifying(false);
+    }
+  }
+
   function toggleMode() {
     onModeChange(mode === "signup" ? "login" : "signup");
     setForm(emptyAuthForm);
     setError("");
     setPendingVerificationEmail("");
+    setVerificationCode("");
     setResendCooldown(0);
     setSuccessMessage("");
   }
@@ -335,32 +394,77 @@ export default function AuthForm({ mode, onModeChange }: AuthFormProps) {
         ) : null}
 
         {pendingVerificationEmail ? (
-          <Button
-            disabled={isResending || resendCooldown > 0}
-            fullWidth
-            onClick={handleResendVerification}
-            sx={{
-              borderColor: "#d7dce5",
-              borderRadius: "10px",
-              color: "#111111",
-              fontSize: "0.875rem",
-              fontWeight: 600,
-              minHeight: "44px",
-              textTransform: "none",
-              "&:hover": {
-                backgroundColor: "#f7f7f5",
-                borderColor: "#c5ccd8",
-              },
-            }}
-            type="button"
-            variant="outlined"
-          >
-            {isResending
-              ? "Sending..."
-              : resendCooldown > 0
-                ? `Resend in ${resendCooldown}s`
-                : "Resend verification email"}
-          </Button>
+          <div className="rounded-[12px] border border-[#d7dce5] bg-[#fafaf8] p-4">
+            <form className="space-y-3" onSubmit={handleVerifyEmail}>
+              <label className="block text-left">
+                <span className="mb-1.5 block text-left text-[12px] font-medium tracking-[0.01em] text-[#6b6b6b]">
+                  Verification code *
+                </span>
+                <input
+                  className="h-12 w-full rounded-[10px] border border-[#d7dce5] bg-white px-[14px] text-center text-lg font-semibold tracking-[0.3em] text-[#111111] outline-none transition placeholder:tracking-normal placeholder:opacity-70 focus:border-[#378ADD]"
+                  inputMode="numeric"
+                  maxLength={6}
+                  name="verificationCode"
+                  onChange={(event) =>
+                    setVerificationCode(
+                      event.target.value.replace(/\D/g, "").slice(0, 6),
+                    )
+                  }
+                  placeholder="000000"
+                  required
+                  value={verificationCode}
+                />
+              </label>
+              <Button
+                disableElevation
+                disabled={isVerifying || verificationCode.length !== 6}
+                fullWidth
+                sx={{
+                  backgroundColor: "#111111",
+                  borderRadius: "10px",
+                  color: "#ffffff",
+                  fontSize: "0.9rem",
+                  fontWeight: 600,
+                  minHeight: "44px",
+                  textTransform: "none",
+                  "&:hover": {
+                    backgroundColor: "#2a2a2a",
+                  },
+                }}
+                type="submit"
+                variant="contained"
+              >
+                {isVerifying ? "Verifying..." : "Verify account"}
+              </Button>
+            </form>
+            <Button
+              disabled={isResending || resendCooldown > 0}
+              fullWidth
+              onClick={handleResendVerification}
+              sx={{
+                borderColor: "#d7dce5",
+                borderRadius: "10px",
+                color: "#111111",
+                fontSize: "0.875rem",
+                fontWeight: 600,
+                mt: 1.5,
+                minHeight: "44px",
+                textTransform: "none",
+                "&:hover": {
+                  backgroundColor: "#f7f7f5",
+                  borderColor: "#c5ccd8",
+                },
+              }}
+              type="button"
+              variant="outlined"
+            >
+              {isResending
+                ? "Sending..."
+                : resendCooldown > 0
+                  ? `Resend in ${resendCooldown}s`
+                  : "Resend verification code"}
+            </Button>
+          </div>
         ) : null}
 
         <Button

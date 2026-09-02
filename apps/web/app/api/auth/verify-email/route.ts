@@ -2,23 +2,25 @@ import { NextResponse } from "next/server";
 import { getApiUrl, parseUpstreamResponse } from "../upstream";
 
 type VerifyEmailPayload = {
-  token?: string;
+  code?: string;
+  email?: string;
 };
 
 export async function POST(request: Request) {
   const body = (await request.json()) as VerifyEmailPayload;
-  const token = body.token?.trim();
+  const code = body.code?.trim();
+  const email = body.email?.trim();
 
-  if (!token) {
+  if (!email || !code) {
     return NextResponse.json(
-      { message: "Verification token is required." },
+      { message: "Email and verification code are required." },
       { status: 400 },
     );
   }
 
   try {
     const upstreamResponse = await fetch(getApiUrl("/auth/verify-email"), {
-      body: JSON.stringify({ token }),
+      body: JSON.stringify({ code, email }),
       headers: {
         "Content-Type": "application/json",
       },

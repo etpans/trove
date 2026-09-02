@@ -18,7 +18,7 @@ export async function POST(request: Request) {
 
   try {
     const upstreamResponse = await fetch(
-      getApiUrl("/auth/resend-verification"),
+      getApiUrl("/auth/resend-verification-code"),
       {
         body: JSON.stringify({ email }),
         headers: {
