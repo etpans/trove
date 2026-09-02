@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
+import { validateEnv } from './config/env.validation';
 
 import { User } from './modules/auth/user.entity';
 import { Subject } from './modules/subjects/entities/subject.entity';
@@ -38,7 +39,7 @@ const getBooleanConfig = (
 @Module({
   imports: [
     // load .env files
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({ isGlobal: true, validate: validateEnv }),
 
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 20 }]),
 
