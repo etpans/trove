@@ -298,9 +298,7 @@ export default function AuthForm({ mode, onModeChange }: AuthFormProps) {
     }
   }
 
-  async function handleVerifyEmail(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
+  async function handleVerifyEmail() {
     if (!pendingVerificationEmail || verificationCode.trim().length !== 6) {
       return;
     }
@@ -580,7 +578,7 @@ export default function AuthForm({ mode, onModeChange }: AuthFormProps) {
 
         {pendingVerificationEmail ? (
           <div className="rounded-[12px] border border-[#d7dce5] bg-[#fafaf8] p-4">
-            <form className="space-y-3" onSubmit={handleVerifyEmail}>
+            <div className="space-y-3">
               <label className="block text-left">
                 <span className="mb-1.5 block text-left text-[12px] font-medium tracking-[0.01em] text-[#6b6b6b]">
                   Verification code *
@@ -604,6 +602,7 @@ export default function AuthForm({ mode, onModeChange }: AuthFormProps) {
                 disableElevation
                 disabled={isVerifying || verificationCode.length !== 6}
                 fullWidth
+                onClick={handleVerifyEmail}
                 sx={{
                   backgroundColor: "#111111",
                   borderRadius: "10px",
@@ -616,12 +615,12 @@ export default function AuthForm({ mode, onModeChange }: AuthFormProps) {
                     backgroundColor: "#2a2a2a",
                   },
                 }}
-                type="submit"
+                type="button"
                 variant="contained"
               >
                 {isVerifying ? "Verifying..." : "Verify account"}
               </Button>
-            </form>
+            </div>
             <Button
               disabled={isResending || resendCooldown > 0}
               fullWidth
