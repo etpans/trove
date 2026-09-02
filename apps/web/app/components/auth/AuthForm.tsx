@@ -93,6 +93,61 @@ async function verifyEmailCode(payload: { code: string; email: string }) {
   return data;
 }
 
+async function requestPasswordReset(email: string) {
+  const response = await fetch("/api/auth/forgot-password", {
+    body: JSON.stringify({ email }),
+    headers: {
+      "Content-Type": "application/json",
+    },
+    method: "POST",
+  });
+  const data = (await response.json()) as AuthApiResponse;
+
+  if (!response.ok) {
+    throw new Error(data.message ?? "Unable to start password reset.");
+  }
+
+  return data;
+}
+
+async function resendPasswordResetCode(email: string) {
+  const response = await fetch("/api/auth/resend-password-reset-code", {
+    body: JSON.stringify({ email }),
+    headers: {
+      "Content-Type": "application/json",
+    },
+    method: "POST",
+  });
+  const data = (await response.json()) as AuthApiResponse;
+
+  if (!response.ok) {
+    throw new Error(data.message ?? "Unable to resend password reset code.");
+  }
+
+  return data;
+}
+
+async function resetPassword(payload: {
+  code: string;
+  email: string;
+  password: string;
+}) {
+  const response = await fetch("/api/auth/reset-password", {
+    body: JSON.stringify(payload),
+    headers: {
+      "Content-Type": "application/json",
+    },
+    method: "POST",
+  });
+  const data = (await response.json()) as AuthApiResponse;
+
+  if (!response.ok) {
+    throw new Error(data.message ?? "Unable to reset password.");
+  }
+
+  return data;
+}
+
 export default function AuthForm({ mode, onModeChange }: AuthFormProps) {
   const router = useRouter();
   const [form, setForm] = useState(emptyAuthForm);
@@ -103,6 +158,14 @@ export default function AuthForm({ mode, onModeChange }: AuthFormProps) {
   const [resendCooldown, setResendCooldown] = useState(0);
   const [isResending, setResending] = useState(false);
   const [isVerifying, setVerifying] = useState(false);
+  const [pendingPasswordResetEmail, setPendingPasswordResetEmail] =
+    useState("");
+  const [passwordResetCode, setPasswordResetCode] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [passwordResetCooldown, setPasswordResetCooldown] = useState(0);
+  const [isRequestingPasswordReset, setRequestingPasswordReset] =
+    useState(false);
+  const [isResettingPassword, setResettingPassword] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
 
   useEffect(() => {
@@ -116,6 +179,18 @@ export default function AuthForm({ mode, onModeChange }: AuthFormProps) {
 
     return () => window.clearInterval(timer);
   }, [resendCooldown]);
+
+  useEffect(() => {
+    if (passwordResetCooldown <= 0) {
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      setPasswordResetCooldown((current) => Math.max(current - 1, 0));
+    }, 1000);
+
+    return () => window.clearInterval(timer);
+  }, [passwordResetCooldown]);
 
   async function handleGoogleSignIn() {
     setSubmitting(true);
@@ -259,18 +334,118 @@ export default function AuthForm({ mode, onModeChange }: AuthFormProps) {
     }
   }
 
+  async function handleForgotPassword() {
+    const email = form.email.trim();
+
+    if (!email) {
+      setError("Enter your email address before resetting your password.");
+      return;
+    }
+
+    setRequestingPasswordReset(true);
+    setError("");
+    setSuccessMessage("");
+
+    try {
+      const data = await requestPasswordReset(email);
+      setPendingPasswordResetEmail(email);
+      setPasswordResetCode("");
+      setNewPassword("");
+      setPasswordResetCooldown(data.cooldownSeconds ?? 60);
+      setSuccessMessage(data.message ?? "Password reset code sent.");
+    } catch (resetError) {
+      setError(
+        resetError instanceof Error
+          ? resetError.message
+          : "Unable to start password reset.",
+      );
+    } finally {
+      setRequestingPasswordReset(false);
+    }
+  }
+
+  async function handleResendPasswordResetCode() {
+    if (!pendingPasswordResetEmail || passwordResetCooldown > 0) {
+      return;
+    }
+
+    setRequestingPasswordReset(true);
+    setError("");
+    setSuccessMessage("");
+
+    try {
+      const data = await resendPasswordResetCode(pendingPasswordResetEmail);
+      setPasswordResetCooldown(data.cooldownSeconds ?? 60);
+      setSuccessMessage(data.message ?? "Password reset code sent.");
+    } catch (resetError) {
+      setError(
+        resetError instanceof Error
+          ? resetError.message
+          : "Unable to resend password reset code.",
+      );
+    } finally {
+      setRequestingPasswordReset(false);
+    }
+  }
+
+  async function handleResetPassword() {
+    if (
+      !pendingPasswordResetEmail ||
+      passwordResetCode.length !== 6 ||
+      newPassword.length < 8
+    ) {
+      return;
+    }
+
+    setResettingPassword(true);
+    setError("");
+    setSuccessMessage("");
+
+    try {
+      const data = await resetPassword({
+        code: passwordResetCode,
+        email: pendingPasswordResetEmail,
+        password: newPassword,
+      });
+      setForm({
+        ...emptyAuthForm,
+        email: pendingPasswordResetEmail,
+      });
+      setPendingPasswordResetEmail("");
+      setPasswordResetCode("");
+      setNewPassword("");
+      setPasswordResetCooldown(0);
+      onModeChange("login");
+      setSuccessMessage(data.message ?? "Password reset. You can sign in now.");
+    } catch (resetError) {
+      setError(
+        resetError instanceof Error
+          ? resetError.message
+          : "Unable to reset password.",
+      );
+    } finally {
+      setResettingPassword(false);
+    }
+  }
+
   function toggleMode() {
     onModeChange(mode === "signup" ? "login" : "signup");
     setForm(emptyAuthForm);
     setError("");
     setPendingVerificationEmail("");
     setVerificationCode("");
+    setPendingPasswordResetEmail("");
+    setPasswordResetCode("");
+    setNewPassword("");
+    setPasswordResetCooldown(0);
     setResendCooldown(0);
     setSuccessMessage("");
   }
 
   const isPasswordTooShort =
     form.password.length > 0 && form.password.length < 8;
+  const isNewPasswordTooShort =
+    newPassword.length > 0 && newPassword.length < 8;
 
   return (
     <>
@@ -348,36 +523,46 @@ export default function AuthForm({ mode, onModeChange }: AuthFormProps) {
           />
 
           {mode === "login" ? (
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={form.rememberMe}
-                  onChange={(event) =>
-                    setForm((current) => ({
-                      ...current,
-                      rememberMe: event.target.checked,
-                    }))
-                  }
-                  size="small"
-                  sx={{
-                    color: "#9aa4b2",
-                    p: 0.5,
-                    "&.Mui-checked": {
-                      color: "#378ADD",
-                    },
-                  }}
-                />
-              }
-              label="Remember me"
-              sx={{
-                alignItems: "center",
-                color: "#6b6b6b",
-                ml: 0,
-                "& .MuiFormControlLabel-label": {
-                  fontSize: "0.875rem",
-                },
-              }}
-            />
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={form.rememberMe}
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        rememberMe: event.target.checked,
+                      }))
+                    }
+                    size="small"
+                    sx={{
+                      color: "#9aa4b2",
+                      p: 0.5,
+                      "&.Mui-checked": {
+                        color: "#378ADD",
+                      },
+                    }}
+                  />
+                }
+                label="Remember me"
+                sx={{
+                  alignItems: "center",
+                  color: "#6b6b6b",
+                  ml: 0,
+                  "& .MuiFormControlLabel-label": {
+                    fontSize: "0.875rem",
+                  },
+                }}
+              />
+              <button
+                className="text-left text-[12px] font-semibold text-[#378ADD] hover:underline sm:text-right"
+                disabled={isRequestingPasswordReset}
+                onClick={handleForgotPassword}
+                type="button"
+              >
+                {isRequestingPasswordReset ? "Sending..." : "Forgot password?"}
+              </button>
+            </div>
           ) : null}
         </div>
 
@@ -463,6 +648,100 @@ export default function AuthForm({ mode, onModeChange }: AuthFormProps) {
                 : resendCooldown > 0
                   ? `Resend in ${resendCooldown}s`
                   : "Resend verification code"}
+            </Button>
+          </div>
+        ) : null}
+
+        {pendingPasswordResetEmail ? (
+          <div className="rounded-[12px] border border-[#d7dce5] bg-[#fafaf8] p-4">
+            <div className="space-y-3">
+              <label className="block text-left">
+                <span className="mb-1.5 block text-left text-[12px] font-medium tracking-[0.01em] text-[#6b6b6b]">
+                  Reset code *
+                </span>
+                <input
+                  className="h-12 w-full rounded-[10px] border border-[#d7dce5] bg-white px-[14px] text-center text-lg font-semibold tracking-[0.3em] text-[#111111] outline-none transition placeholder:tracking-normal placeholder:opacity-70 focus:border-[#378ADD]"
+                  inputMode="numeric"
+                  maxLength={6}
+                  name="passwordResetCode"
+                  onChange={(event) =>
+                    setPasswordResetCode(
+                      event.target.value.replace(/\D/g, "").slice(0, 6),
+                    )
+                  }
+                  placeholder="000000"
+                  required
+                  value={passwordResetCode}
+                />
+              </label>
+              <FormTextField
+                error={isNewPasswordTooShort}
+                helperText={
+                  isNewPasswordTooShort
+                    ? "Password must be at least 8 characters."
+                    : " "
+                }
+                label="New password"
+                name="newPassword"
+                onChange={setNewPassword}
+                placeholder="******"
+                required
+                type="password"
+                value={newPassword}
+              />
+              <Button
+                disableElevation
+                disabled={
+                  isResettingPassword ||
+                  passwordResetCode.length !== 6 ||
+                  newPassword.length < 8
+                }
+                fullWidth
+                onClick={handleResetPassword}
+                sx={{
+                  backgroundColor: "#111111",
+                  borderRadius: "10px",
+                  color: "#ffffff",
+                  fontSize: "0.9rem",
+                  fontWeight: 600,
+                  minHeight: "44px",
+                  textTransform: "none",
+                  "&:hover": {
+                    backgroundColor: "#2a2a2a",
+                  },
+                }}
+                type="button"
+                variant="contained"
+              >
+                {isResettingPassword ? "Resetting..." : "Reset password"}
+              </Button>
+            </div>
+            <Button
+              disabled={isRequestingPasswordReset || passwordResetCooldown > 0}
+              fullWidth
+              onClick={handleResendPasswordResetCode}
+              sx={{
+                borderColor: "#d7dce5",
+                borderRadius: "10px",
+                color: "#111111",
+                fontSize: "0.875rem",
+                fontWeight: 600,
+                mt: 1.5,
+                minHeight: "44px",
+                textTransform: "none",
+                "&:hover": {
+                  backgroundColor: "#f7f7f5",
+                  borderColor: "#c5ccd8",
+                },
+              }}
+              type="button"
+              variant="outlined"
+            >
+              {isRequestingPasswordReset
+                ? "Sending..."
+                : passwordResetCooldown > 0
+                  ? `Resend in ${passwordResetCooldown}s`
+                  : "Resend reset code"}
             </Button>
           </div>
         ) : null}
