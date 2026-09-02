@@ -54,7 +54,15 @@ type ShareLinkRecord = {
   token: string;
 };
 
+type NoteAttachmentRecord = {
+  caption?: string | null;
+  fileType: string;
+  fileUrl: string;
+  id: string;
+};
+
 type NoteRecord = {
+  attachments?: NoteAttachmentRecord[];
   content: string | null;
   createdAt?: string;
   id: number;
@@ -138,6 +146,22 @@ async function fetchJson<T>(url: string, init?: RequestInit) {
       "Content-Type": "application/json",
       ...init?.headers,
     },
+  });
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(
+      typeof data.message === "string" ? data.message : "Request failed.",
+    );
+  }
+
+  return data as T;
+}
+
+async function fetchMultipartJson<T>(url: string, formData: FormData) {
+  const response = await fetch(url, {
+    body: formData,
+    method: "POST",
   });
   const data = await response.json().catch(() => ({}));
 
@@ -510,6 +534,21 @@ function DashboardContent() {
     },
   });
 
+  const uploadAttachmentMutation = useMutation({
+    mutationFn: ({ file, noteId }: { file: File; noteId: number }) => {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      return fetchMultipartJson<NoteAttachmentRecord>(
+        `/api/notes/${noteId}/attachments`,
+        formData,
+      );
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["notes"] });
+    },
+  });
+
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });
     router.replace("/");
@@ -843,6 +882,7 @@ function DashboardContent() {
                     ) : null}
                   </div>
                   <div className="mt-4 grid gap-3">
+                    <ErrorBox message={uploadAttachmentMutation.error?.message} />
                     {notesQuery.data?.length ? (
                       notesQuery.data.map((note) => {
                         const share = note.shareLinks?.[0];
@@ -887,8 +927,48 @@ function DashboardContent() {
                                     {shareUrl}
                                   </a>
                                 ) : null}
+                                {note.attachments?.length ? (
+                                  <div className="mt-3 flex flex-wrap gap-2">
+                                    {note.attachments.map((attachment, index) => (
+                                      <a
+                                        className="rounded-full border border-[#d7dce5] bg-white px-2.5 py-1 text-xs font-medium text-[#245f99] underline"
+                                        href={attachment.fileUrl}
+                                        key={attachment.id}
+                                        rel="noreferrer"
+                                        target="_blank"
+                                      >
+                                        {attachment.caption?.trim() ||
+                                          `Attachment ${index + 1}`}
+                                      </a>
+                                    ))}
+                                  </div>
+                                ) : null}
                               </div>
                               <div className="flex shrink-0 flex-wrap gap-2">
+                                <Button
+                                  component="label"
+                                  disabled={uploadAttachmentMutation.isPending}
+                                  size="small"
+                                  sx={{ textTransform: "none" }}
+                                >
+                                  Attach file
+                                  <input
+                                    hidden
+                                    onChange={(event) => {
+                                      const file = event.target.files?.[0];
+
+                                      if (file) {
+                                        uploadAttachmentMutation.mutate({
+                                          file,
+                                          noteId: note.id,
+                                        });
+                                      }
+
+                                      event.target.value = "";
+                                    }}
+                                    type="file"
+                                  />
+                                </Button>
                                 <Button
                                   onClick={() => {
                                     setEditingNoteId(note.id);
