@@ -46,15 +46,60 @@ describe('API (e2e)', () => {
     await dataSource
       .query('DELETE FROM "note_tags_tag"')
       .catch(() => undefined);
-    await dataSource.getRepository(ShareLinkEntity).delete({});
-    await dataSource.getRepository(NoteAttachmentEntity).delete({});
-    await dataSource.getRepository(Note).delete({});
-    await dataSource.getRepository(Student).delete({});
-    await dataSource.getRepository(Class).delete({});
-    await dataSource.getRepository(Subject).delete({});
-    await dataSource.getRepository(Tag).delete({});
-    await dataSource.getRepository(RefreshToken).delete({});
-    await dataSource.getRepository(User).delete({});
+    await dataSource
+      .getRepository(ShareLinkEntity)
+      .createQueryBuilder()
+      .delete()
+      .where('1 = 1')
+      .execute();
+    await dataSource
+      .getRepository(NoteAttachmentEntity)
+      .createQueryBuilder()
+      .delete()
+      .where('1 = 1')
+      .execute();
+    await dataSource
+      .getRepository(Note)
+      .createQueryBuilder()
+      .delete()
+      .where('1 = 1')
+      .execute();
+    await dataSource
+      .getRepository(Student)
+      .createQueryBuilder()
+      .delete()
+      .where('1 = 1')
+      .execute();
+    await dataSource
+      .getRepository(Class)
+      .createQueryBuilder()
+      .delete()
+      .where('1 = 1')
+      .execute();
+    await dataSource
+      .getRepository(Subject)
+      .createQueryBuilder()
+      .delete()
+      .where('1 = 1')
+      .execute();
+    await dataSource
+      .getRepository(Tag)
+      .createQueryBuilder()
+      .delete()
+      .where('1 = 1')
+      .execute();
+    await dataSource
+      .getRepository(RefreshToken)
+      .createQueryBuilder()
+      .delete()
+      .where('1 = 1')
+      .execute();
+    await dataSource
+      .getRepository(User)
+      .createQueryBuilder()
+      .delete()
+      .where('1 = 1')
+      .execute();
   };
 
   const registerVerifiedUser = async (email: string) => {
