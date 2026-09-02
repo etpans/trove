@@ -206,6 +206,36 @@ function getShareUrl(token: string) {
   return `${window.location.origin}/share/${token}`;
 }
 
+function isImageAttachment(attachment: NoteAttachmentRecord) {
+  return attachment.fileType.startsWith("image/");
+}
+
+function getAttachmentKind(attachment: NoteAttachmentRecord) {
+  if (attachment.fileType.startsWith("image/")) {
+    return "Image";
+  }
+
+  if (attachment.fileType === "application/pdf") {
+    return "PDF";
+  }
+
+  if (attachment.fileType.startsWith("video/")) {
+    return "Video";
+  }
+
+  if (attachment.fileType.startsWith("audio/")) {
+    return "Audio";
+  }
+
+  return "File";
+}
+
+function getAttachmentLabel(attachment: NoteAttachmentRecord, index: number) {
+  return (
+    attachment.caption?.trim() || `${getAttachmentKind(attachment)} ${index + 1}`
+  );
+}
+
 function FieldLabel({
   children,
   htmlFor,
@@ -243,6 +273,52 @@ function EmptyState({ children }: { children: React.ReactNode }) {
   return (
     <div className="rounded-lg border border-dashed border-[#cfd6df] bg-white p-8 text-sm leading-6 text-[#6b6b6b]">
       {children}
+    </div>
+  );
+}
+
+function AttachmentGrid({
+  attachments,
+}: {
+  attachments?: NoteAttachmentRecord[];
+}) {
+  if (!attachments?.length) {
+    return null;
+  }
+
+  return (
+    <div className="mt-4 grid gap-3 sm:grid-cols-2">
+      {attachments.map((attachment, index) => {
+        const label = getAttachmentLabel(attachment, index);
+
+        return (
+          <a
+            className="group overflow-hidden rounded-lg border border-[#d7dce5] bg-[#fafaf8] text-sm text-[#111111] transition hover:border-[#378ADD]"
+            href={attachment.fileUrl}
+            key={attachment.id}
+            rel="noreferrer"
+            target="_blank"
+          >
+            {isImageAttachment(attachment) ? (
+              <div
+                aria-label={label}
+                className="h-32 w-full bg-white bg-cover bg-center"
+                role="img"
+                style={{ backgroundImage: `url(${attachment.fileUrl})` }}
+              />
+            ) : (
+              <div className="flex h-32 items-center justify-center bg-white text-xs font-semibold uppercase tracking-[0.12em] text-[#6b6b6b]">
+                {getAttachmentKind(attachment)}
+              </div>
+            )}
+            <div className="border-t border-[#d7dce5] px-3 py-2">
+              <span className="block truncate font-medium text-[#245f99] group-hover:underline">
+                {label}
+              </span>
+            </div>
+          </a>
+        );
+      })}
     </div>
   );
 }
@@ -314,6 +390,7 @@ function DashboardContent() {
     useState<NamedColorFormState>(emptySubjectForm);
   const [tagForm, setTagForm] = useState<NamedColorFormState>(emptyTagForm);
   const [noteForm, setNoteForm] = useState<NoteFormState>(emptyNoteForm);
+  const [noteAttachmentFiles, setNoteAttachmentFiles] = useState<File[]>([]);
   const [editingClassId, setEditingClassId] = useState<number | null>(null);
   const [editingStudentId, setEditingStudentId] = useState<number | null>(null);
   const [editingSubjectId, setEditingSubjectId] = useState<number | null>(null);
@@ -465,20 +542,58 @@ function DashboardContent() {
   });
 
   const saveNoteMutation = useMutation({
-    mutationFn: (payload: NoteFormState & { id?: number }) =>
-      fetchJson<NoteRecord>(payload.id ? `/api/notes/${payload.id}` : "/api/notes", {
-        body: JSON.stringify({
-          content: payload.content.trim(),
-          studentId: Number(payload.studentId),
-          subjectId: payload.subjectId ? Number(payload.subjectId) : null,
-          tagIds: payload.tagIds.map(Number),
-          title: payload.title.trim(),
+    mutationFn: async (
+      payload: NoteFormState & { attachments: File[]; id?: number },
+    ) => {
+      const note = await fetchJson<NoteRecord>(
+        payload.id ? `/api/notes/${payload.id}` : "/api/notes",
+        {
+          body: JSON.stringify({
+            content: payload.content.trim(),
+            studentId: Number(payload.studentId),
+            subjectId: payload.subjectId ? Number(payload.subjectId) : null,
+            tagIds: payload.tagIds.map(Number),
+            title: payload.title.trim(),
+          }),
+          method: payload.id ? "PATCH" : "POST",
+        },
+      );
+
+      await Promise.all(
+        payload.attachments.map((file) => {
+          const formData = new FormData();
+          formData.append("file", file);
+          formData.append("caption", file.name);
+
+          return fetchMultipartJson<NoteAttachmentRecord>(
+            `/api/notes/${note.id}/attachments`,
+            formData,
+          );
         }),
-        method: payload.id ? "PATCH" : "POST",
-      }),
+      );
+
+      return note;
+    },
     onSuccess: async () => {
       setNoteForm(emptyNoteForm);
+      setNoteAttachmentFiles([]);
       setEditingNoteId(null);
+      await queryClient.invalidateQueries({ queryKey: ["notes"] });
+    },
+  });
+
+  const uploadAttachmentMutation = useMutation({
+    mutationFn: ({ file, noteId }: { file: File; noteId: number }) => {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("caption", file.name);
+
+      return fetchMultipartJson<NoteAttachmentRecord>(
+        `/api/notes/${noteId}/attachments`,
+        formData,
+      );
+    },
+    onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["notes"] });
     },
   });
@@ -516,6 +631,7 @@ function DashboardContent() {
       if (variables.resource === "notes") {
         setEditingNoteId(null);
         setNoteForm(emptyNoteForm);
+        setNoteAttachmentFiles([]);
         await queryClient.invalidateQueries({ queryKey: ["notes"] });
       }
     },
@@ -530,21 +646,6 @@ function DashboardContent() {
       const url = getShareUrl(shareLink.token);
       setLatestShareUrl(url);
       await navigator.clipboard?.writeText(url).catch(() => undefined);
-      await queryClient.invalidateQueries({ queryKey: ["notes"] });
-    },
-  });
-
-  const uploadAttachmentMutation = useMutation({
-    mutationFn: ({ file, noteId }: { file: File; noteId: number }) => {
-      const formData = new FormData();
-      formData.append("file", file);
-
-      return fetchMultipartJson<NoteAttachmentRecord>(
-        `/api/notes/${noteId}/attachments`,
-        formData,
-      );
-    },
-    onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["notes"] });
     },
   });
@@ -605,6 +706,7 @@ function DashboardContent() {
     }
     saveNoteMutation.mutate({
       ...noteForm,
+      attachments: noteAttachmentFiles,
       id: editingNoteId ?? undefined,
     });
   }
@@ -927,22 +1029,7 @@ function DashboardContent() {
                                     {shareUrl}
                                   </a>
                                 ) : null}
-                                {note.attachments?.length ? (
-                                  <div className="mt-3 flex flex-wrap gap-2">
-                                    {note.attachments.map((attachment, index) => (
-                                      <a
-                                        className="rounded-full border border-[#d7dce5] bg-white px-2.5 py-1 text-xs font-medium text-[#245f99] underline"
-                                        href={attachment.fileUrl}
-                                        key={attachment.id}
-                                        rel="noreferrer"
-                                        target="_blank"
-                                      >
-                                        {attachment.caption?.trim() ||
-                                          `Attachment ${index + 1}`}
-                                      </a>
-                                    ))}
-                                  </div>
-                                ) : null}
+                                <AttachmentGrid attachments={note.attachments} />
                               </div>
                               <div className="flex shrink-0 flex-wrap gap-2">
                                 <Button
@@ -983,6 +1070,7 @@ function DashboardContent() {
                                         [],
                                       title: note.title,
                                     });
+                                    setNoteAttachmentFiles([]);
                                   }}
                                   size="small"
                                   sx={{ textTransform: "none" }}
@@ -1272,12 +1360,71 @@ function DashboardContent() {
                       value={noteForm.content}
                     />
                   </div>
+                  <div>
+                    <FieldLabel>Attachments</FieldLabel>
+                    <Button
+                      component="label"
+                      sx={{
+                        borderColor: "#d7dce5",
+                        borderRadius: "8px",
+                        color: "#111111",
+                        fontWeight: 600,
+                        minHeight: "44px",
+                        textTransform: "none",
+                        width: "100%",
+                      }}
+                      variant="outlined"
+                    >
+                      Add files
+                      <input
+                        hidden
+                        multiple
+                        onChange={(event) => {
+                          const files = Array.from(event.target.files ?? []);
+
+                          if (files.length > 0) {
+                            setNoteAttachmentFiles((current) => [
+                              ...current,
+                              ...files,
+                            ]);
+                          }
+
+                          event.target.value = "";
+                        }}
+                        type="file"
+                      />
+                    </Button>
+                    {noteAttachmentFiles.length > 0 ? (
+                      <div className="mt-3 space-y-2">
+                        {noteAttachmentFiles.map((file, index) => (
+                          <div
+                            className="flex items-center justify-between gap-3 rounded-lg border border-[#e7e5df] bg-[#fafaf8] px-3 py-2 text-sm"
+                            key={`${file.name}-${file.lastModified}-${index}`}
+                          >
+                            <span className="min-w-0 truncate">{file.name}</span>
+                            <button
+                              className="shrink-0 text-xs font-semibold text-[#b42318] hover:underline"
+                              onClick={() =>
+                                setNoteAttachmentFiles((current) =>
+                                  current.filter((_, fileIndex) => fileIndex !== index),
+                                )
+                              }
+                              type="button"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
                   <FormActions
                     isEditing={Boolean(selectedNote)}
                     isSaving={saveNoteMutation.isPending}
                     onCancel={() => {
                       setEditingNoteId(null);
                       setNoteForm(emptyNoteForm);
+                      setNoteAttachmentFiles([]);
                     }}
                   />
                   <ErrorBox message={saveNoteMutation.error?.message} />
