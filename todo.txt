@@ -1,27 +1,42 @@
+(A) Deploy backend API to Render or Railway and configure production env vars +backend +hosting +launch
+(A) Deploy frontend to Vercel and connect it to the hosted API +frontend +hosting +launch
+x 2026-09-05 2026-09-05 Connect production domain through Porkbun and Vercel DNS +frontend +domain +launch
+(A) Set up transactional email with Resend SMTP for verification and password reset codes +backend +email +auth +launch
+(A) Touch up login/register flow as dedicated pages instead of popups +frontend +auth +ux
+(A) When clicking login, check for an existing authenticated session before showing the login flow +frontend +auth +ux
+(A) Create Terms of Service page and link it from auth/signup surfaces +legal +frontend +launch
+(A) Create Privacy Policy page and link it from auth/signup surfaces +legal +frontend +launch
+(B) Default new class date/session field to the current date +frontend +classes +ux
+(B) Sort students by last name while handling middle names, suffixes, and single-name edge cases +frontend +students +sorting
+(B) Support bulk class and student creation from CSV imports +frontend +backend +import +classes +students
+(B) Support bulk class and student creation from images or scans using OCR +frontend +backend +import +classes +students
+(B) Capture optional student and parent emails during bulk student import +frontend +backend +import +students
+(B) Make note editing open in a Notion-style popup/modal while preserving class dashboard context +frontend +notes +ux
+(B) Add Markdown support for note writing and display +frontend +backend +notes
+(B) Refine note sharing flow, including clear visibility state, copied links, revoke actions, and recipient-facing view +frontend +backend +sharing +notes
+(C) Connect Turnstile verification to auth requests +backend +auth +security
+(C) Fix verify-email "continue to login" behavior so it routes to the dedicated login page +frontend +auth
+(C) Add deletion confirmation and soft-delete retention for classes, such as 7 days before permanent removal +backend +frontend +classes +safety
+(C) Create mobile frontend and connect with backend +mobile +frontend +backend
+(C) Understand and document the current frontend data flow +frontend +docs
 x 2026-07-06 2026-07-06 Create subject entity +backend
 x 2026-07-06 2026-07-06 Create classes entity +backend
 x 2026-07-09 2026-07-09 Create tags entity +backend
-(C) Connect turntile (cloudflare) to the auth +backend
-x 2026-07-26 2026-07-06 Add all entities to appmodule with refresh tokens etc +backend
-x 2026-08-10 2026-07-06 Ensure all services validate data before sending back any +backend
-x 2026-07-12 2026-07-12 Create notes and student entity (circular dependency) +backend
-x 2026-07-07 2026-07-07 Finish classes service update and remove methods
-x 2026-07-12 2026-07-12 Figure out of subject/tag entity needs token authentication
-x 2026-07-15 2026-07-15 Test api endpoints +backend
-x 2026-08-10 2026-07-15 When creating class have random color attribute +backend
-x 2026-08-10 2026-07-15 When creating a new note be able to create with existing tags and reference actual student object rather than just id +backend
-x 2026-07-15 2026-07-15 Make a way to add tags and subjects +backend
-(B) Create webapp frontend and connect with backend +frontend +backend
-(B) Create mobile frontend and connect with backend +frontend +backend
-x 2026-07-17 2026-07-17 Create enroll note share and token endpoints +backend
-x 2026-07-26 2026-07-26 Write a seed script +backend
-x 2026-07-29 2026-07-29 Add database indexes +backend
-x 2026-08-10 2026-07-15 Write e2e tests +backend
-x 2026-07-21 2026-07-21 Add service methods in notes for creating attachments and share links +backend
-x 2026-08-09 2026-08-09 Create verify email page
-(B) Write forgot password authentication +backend
-(C) Fix continue to login on verify so that i shows the login page +frontend
-(C) Confirmation for class deletion and keep it for 7 days or something +backend +frontend
-(A) Change email verification and eventual password reseting to use email sent codes +backend
-(A) Implment checks for logged in users on landing page +frontend +web
-(A) Understand the frontend logic
+x 2026-07-26 2026-07-06 Add all entities to AppModule with refresh tokens +backend
+x 2026-08-10 2026-07-06 Ensure services validate ownership before returning data +backend +security
+x 2026-07-12 2026-07-12 Create notes and student entities +backend
+x 2026-07-07 2026-07-07 Finish class service update and remove methods +backend
+x 2026-07-12 2026-07-12 Check whether subject/tag entities need token authentication +backend +auth
+x 2026-07-15 2026-07-15 Test API endpoints +backend +testing
+x 2026-08-10 2026-07-15 Add random color attribute when creating classes +backend +classes
+x 2026-08-10 2026-07-15 Create notes with existing tags and student relation hydration +backend +notes
+x 2026-07-15 2026-07-15 Add ways to create tags and subjects +backend
+x 2026-09-04 2026-09-04 Create web app frontend and connect with backend +frontend +backend
+x 2026-07-17 2026-07-17 Create enroll, note share, and token endpoints +backend +sharing
+x 2026-07-26 2026-07-26 Write seed script +backend +database
+x 2026-07-29 2026-07-29 Add database indexes +backend +database
+x 2026-08-10 2026-07-15 Write e2e tests +backend +testing
+x 2026-07-21 2026-07-21 Add note attachment and share link service methods +backend +notes +sharing
+x 2026-08-09 2026-08-09 Create verify email page +frontend +auth
+x 2026-09-04 2026-09-04 Write forgot password authentication +backend +auth
+x 2026-09-04 2026-09-04 Change email verification and password reset to use emailed codes +backend +email +auth
