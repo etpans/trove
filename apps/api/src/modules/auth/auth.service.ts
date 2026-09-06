@@ -123,7 +123,9 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
       .getOne();
 
     if (!user || user.isVerified) {
-      return { message: 'If the account needs verification, a new code will be sent.' };
+      return {
+        message: 'If the account needs verification, a new code will be sent.',
+      };
     }
 
     this.assertCanResend(user.verificationCodeSentAt);
@@ -137,7 +139,9 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
     await this.userRepository.save(user);
     await this.emailService.sendVerificationCode(user.email, code);
 
-    return { message: 'If the account needs verification, a new code will be sent.' };
+    return {
+      message: 'If the account needs verification, a new code will be sent.',
+    };
   }
 
   // TODO: think about what if the user has multiple devices or somehow logins again
@@ -247,11 +251,15 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
       .getOne();
 
     if (!user) {
-      return { message: 'If an account exists, a password reset code will be sent.' };
+      return {
+        message: 'If an account exists, a password reset code will be sent.',
+      };
     }
 
     await this.sendPasswordResetCode(user);
-    return { message: 'If an account exists, a password reset code will be sent.' };
+    return {
+      message: 'If an account exists, a password reset code will be sent.',
+    };
   }
 
   async resendPasswordResetCode(email: string) {
@@ -262,11 +270,15 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
       .getOne();
 
     if (!user) {
-      return { message: 'If an account exists, a password reset code will be sent.' };
+      return {
+        message: 'If an account exists, a password reset code will be sent.',
+      };
     }
 
     await this.sendPasswordResetCode(user);
-    return { message: 'If an account exists, a password reset code will be sent.' };
+    return {
+      message: 'If an account exists, a password reset code will be sent.',
+    };
   }
 
   async resetPassword(dto: ResetPasswordDto) {
@@ -296,7 +308,10 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
     user.failedLoginAttempts = 0;
     user.lockedUntil = null;
     await this.userRepository.save(user);
-    await this.rtRepository.update({ userId: user.id, isRevoked: false }, { isRevoked: true });
+    await this.rtRepository.update(
+      { userId: user.id, isRevoked: false },
+      { isRevoked: true },
+    );
 
     return { message: 'Password reset.' };
   }
