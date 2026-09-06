@@ -3,7 +3,6 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
-import { validateEnv } from './config/env.validation';
 
 import { User } from './modules/auth/user.entity';
 import { Subject } from './modules/subjects/entities/subject.entity';
@@ -36,10 +35,33 @@ const getBooleanConfig = (
   return ['1', 'true', 'yes'].includes(value.toLowerCase());
 };
 
+const getDatabaseSslConfig = (databaseUrl?: string) => {
+  if (!databaseUrl) {
+    return false;
+  }
+
+  try {
+    const url = new URL(databaseUrl);
+    const sslMode = url.searchParams.get('sslmode');
+
+    if (sslMode === 'disable') {
+      return false;
+    }
+
+    if (sslMode) {
+      return true;
+    }
+  } catch {
+    return false;
+  }
+
+  return databaseUrl.includes('neon.tech');
+};
+
 @Module({
   imports: [
     // load .env files
-    ConfigModule.forRoot({ isGlobal: true, validate: validateEnv }),
+    ConfigModule.forRoot({ isGlobal: true }),
 
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 20 }]),
 
@@ -47,28 +69,47 @@ const getBooleanConfig = (
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        type: 'postgres',
-        host: config.get('DB_HOST'),
-        port: config.get<number>('DB_PORT'),
-        username: config.get('DB_USER'),
-        password: config.get('DB_PASS'),
-        database: config.get('DB_NAME'),
-        entities: [
-          User,
-          RefreshToken,
-          Subject,
-          Class,
-          Student,
-          Note,
-          Tag,
-          NoteAttachmentEntity,
-          ShareLinkEntity,
-        ],
-        migrations: ['dist/database/migrations/*.js'],
-        migrationsRun: getBooleanConfig(config, 'DB_MIGRATIONS_RUN'),
-        synchronize: getBooleanConfig(config, 'DB_SYNCHRONIZE'),
-      }),
+      useFactory: (config: ConfigService) => {
+        const databaseUrl = config.get<string>('DATABASE_URL');
+        const baseConfig = {
+          type: 'postgres' as const,
+          entities: [
+            User,
+            RefreshToken,
+            Subject,
+            Class,
+            Student,
+            Note,
+            Tag,
+            NoteAttachmentEntity,
+            ShareLinkEntity,
+          ],
+          migrations: ['dist/database/migrations/*.js'],
+          migrationsRun: getBooleanConfig(config, 'DB_MIGRATIONS_RUN'),
+          synchronize: getBooleanConfig(
+            config,
+            'DB_SYNCHRONIZE',
+            process.env.NODE_ENV !== 'production',
+          ),
+        };
+
+        if (databaseUrl) {
+          return {
+            ...baseConfig,
+            ssl: getDatabaseSslConfig(databaseUrl),
+            url: databaseUrl,
+          };
+        }
+
+        return {
+          ...baseConfig,
+          database: config.get<string>('DB_NAME') ?? 'trove',
+          host: config.get<string>('DB_HOST') ?? 'localhost',
+          password: config.get<string>('DB_PASS') ?? 'dev',
+          port: Number(config.get<string>('DB_PORT') ?? 5432),
+          username: config.get<string>('DB_USER') ?? 'dev',
+        };
+      },
     }),
     AuthModule,
     ClassesModule,

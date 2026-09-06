@@ -20,7 +20,10 @@ export class SubjectsController {
   constructor(private readonly subjectsService: SubjectsService) {}
 
   @Post()
-  create(@Request() req: { user: { userId: string } }, @Body() dto: CreateSubjectDto) {
+  create(
+    @Request() req: { user: { userId: string } },
+    @Body() dto: CreateSubjectDto,
+  ) {
     return this.subjectsService.create(req.user.userId, dto);
   }
 
@@ -30,7 +33,10 @@ export class SubjectsController {
   }
 
   @Get(':id')
-  findOne(@Request() req: { user: { userId: string } }, @Param('id') id: string) {
+  findOne(
+    @Request() req: { user: { userId: string } },
+    @Param('id') id: string,
+  ) {
     return this.subjectsService.findOne(req.user.userId, +id);
   }
 
@@ -44,7 +50,10 @@ export class SubjectsController {
   }
 
   @Delete(':id')
-  remove(@Request() req: { user: { userId: string } }, @Param('id') id: string) {
+  remove(
+    @Request() req: { user: { userId: string } },
+    @Param('id') id: string,
+  ) {
     return this.subjectsService.remove(req.user.userId, +id);
   }
 }
