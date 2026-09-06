@@ -20,7 +20,10 @@ export class TagsController {
   constructor(private readonly tagsService: TagsService) {}
 
   @Post()
-  create(@Request() req: { user: { userId: string } }, @Body() createTagDto: CreateTagDto) {
+  create(
+    @Request() req: { user: { userId: string } },
+    @Body() createTagDto: CreateTagDto,
+  ) {
     return this.tagsService.create(req.user.userId, createTagDto);
   }
 
@@ -30,7 +33,10 @@ export class TagsController {
   }
 
   @Get(':id')
-  findOne(@Request() req: { user: { userId: string } }, @Param('id') id: string) {
+  findOne(
+    @Request() req: { user: { userId: string } },
+    @Param('id') id: string,
+  ) {
     return this.tagsService.findOne(req.user.userId, +id);
   }
 
@@ -44,7 +50,10 @@ export class TagsController {
   }
 
   @Delete(':id')
-  remove(@Request() req: { user: { userId: string } }, @Param('id') id: string) {
+  remove(
+    @Request() req: { user: { userId: string } },
+    @Param('id') id: string,
+  ) {
     return this.tagsService.remove(req.user.userId, +id);
   }
 }

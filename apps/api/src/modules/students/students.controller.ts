@@ -20,7 +20,10 @@ export class StudentsController {
   constructor(private readonly studentsService: StudentsService) {}
 
   @Post()
-  create(@Request() req: { user: { userId: string } }, @Body() createStudentDto: CreateStudentDto) {
+  create(
+    @Request() req: { user: { userId: string } },
+    @Body() createStudentDto: CreateStudentDto,
+  ) {
     return this.studentsService.create(req.user.userId, createStudentDto);
   }
 
@@ -30,7 +33,10 @@ export class StudentsController {
   }
 
   @Get(':id')
-  findOne(@Request() req: { user: { userId: string } }, @Param('id') id: string) {
+  findOne(
+    @Request() req: { user: { userId: string } },
+    @Param('id') id: string,
+  ) {
     return this.studentsService.findOne(req.user.userId, +id);
   }
 
@@ -44,7 +50,10 @@ export class StudentsController {
   }
 
   @Delete(':id')
-  remove(@Request() req: { user: { userId: string } }, @Param('id') id: string) {
+  remove(
+    @Request() req: { user: { userId: string } },
+    @Param('id') id: string,
+  ) {
     return this.studentsService.remove(req.user.userId, +id);
   }
 }
