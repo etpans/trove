@@ -1,11 +1,13 @@
-(A) Deploy backend API to Render or Railway and configure production env vars +backend +hosting +launch
-(A) Deploy frontend to Vercel and connect it to the hosted API +frontend +hosting +launch
+x 2026-09-05 2026-09-05 Deploy backend API to Render or Railway and configure production env vars +backend +hosting +launch
+x 2026-09-05 2026-09-05 Deploy frontend to Vercel and connect it to the hosted API +frontend +hosting +launch
 x 2026-09-05 2026-09-05 Connect production domain through Porkbun and Vercel DNS +frontend +domain +launch
 (A) Set up transactional email with Resend SMTP for verification and password reset codes +backend +email +auth +launch
 (A) Touch up login/register flow as dedicated pages instead of popups +frontend +auth +ux
 (A) When clicking login, check for an existing authenticated session before showing the login flow +frontend +auth +ux
 (A) Create Terms of Service page and link it from auth/signup surfaces +legal +frontend +launch
 (A) Create Privacy Policy page and link it from auth/signup surfaces +legal +frontend +launch
+(A) Add in-app account deletion flow for users +auth +legal +launch
+(A) Create demo reviewer account and stable review data +auth +launch +ios
 (B) Default new class date/session field to the current date +frontend +classes +ux
 (B) Sort students by last name while handling middle names, suffixes, and single-name edge cases +frontend +students +sorting
 (B) Support bulk class and student creation from CSV imports +frontend +backend +import +classes +students
@@ -18,6 +20,14 @@ x 2026-09-05 2026-09-05 Connect production domain through Porkbun and Vercel DNS
 (C) Fix verify-email "continue to login" behavior so it routes to the dedicated login page +frontend +auth
 (C) Add deletion confirmation and soft-delete retention for classes, such as 7 days before permanent removal +backend +frontend +classes +safety
 (C) Create mobile frontend and connect with backend +mobile +frontend +backend
+(C) Configure Expo iOS app metadata, bundle identifier, and build number +mobile +ios +launch
+(C) Set up EAS iOS build profiles for preview and production +mobile +ios +launch
+(C) Add iOS permission descriptions for mobile media features +mobile +ios +privacy
+(C) Configure mobile production API environment +mobile +backend +launch
+(C) Test mobile app on real iOS devices before TestFlight +mobile +ios +testing
+(C) Prepare App Store Connect listing, screenshots, privacy answers, and age rating +ios +launch
+(C) Submit first TestFlight build for beta review +mobile +ios +launch
+(C) Ensure iOS builds use the required Apple SDK toolchain +mobile +ios +launch
 (C) Understand and document the current frontend data flow +frontend +docs
 x 2026-07-06 2026-07-06 Create subject entity +backend
 x 2026-07-06 2026-07-06 Create classes entity +backend
