@@ -1,5 +1,5 @@
-(A) Deploy backend API to Render or Railway and configure production env vars +backend +hosting +launch
-(A) Deploy frontend to Vercel and connect it to the hosted API +frontend +hosting +launch
+x 2026-09-05 2026-09-05 Deploy backend API to Render or Railway and configure production env vars +backend +hosting +launch
+x 2026-09-05 2026-09-05 Deploy frontend to Vercel and connect it to the hosted API +frontend +hosting +launch
 x 2026-09-05 2026-09-05 Connect production domain through Porkbun and Vercel DNS +frontend +domain +launch
 (A) Set up transactional email with Resend SMTP for verification and password reset codes +backend +email +auth +launch
 (A) Touch up login/register flow as dedicated pages instead of popups +frontend +auth +ux
