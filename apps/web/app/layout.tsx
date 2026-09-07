@@ -9,8 +9,15 @@ export const metadata: Metadata = {
   description:
     "Comment-based notes for elementary teachers who want to capture real classroom moments.",
   icons: {
-    icon: "/brand/trove-mark.png",
-    apple: "/brand/trove-mark.png",
+    icon: "/icon.png",
+    apple: "/apple-icon.png",
+  },
+  openGraph: {
+    images: ["/icon.png"],
+  },
+  twitter: {
+    card: "summary",
+    images: ["/icon.png"],
   },
 };
 
