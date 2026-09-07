@@ -8,6 +8,10 @@ export const metadata: Metadata = {
   title: "trove",
   description:
     "Comment-based notes for elementary teachers who want to capture real classroom moments.",
+  icons: {
+    icon: "/brand/trove-mark.png",
+    apple: "/brand/trove-mark.png",
+  },
 };
 
 export default function RootLayout({
