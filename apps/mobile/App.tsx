@@ -16,7 +16,15 @@ import {
   View,
 } from 'react-native';
 
-const API_BASE_URL = 'http://localhost:3000';
+declare const process: {
+  env?: {
+    EXPO_PUBLIC_API_BASE_URL?: string;
+  };
+};
+
+const API_BASE_URL =
+  process.env?.EXPO_PUBLIC_API_BASE_URL?.replace(/\/$/, '') ||
+  'http://localhost:3000';
 
 type AuthMode = 'login' | 'register';
 type Screen = 'home' | 'class' | 'student';
@@ -580,6 +588,9 @@ export default function App() {
               isPinned={false}
               note={item}
               onAttach={() => attachMedia(item.id)}
+              studentName={
+                students.find((student) => student.id === item.studentId)?.name
+              }
             />
           )}
         />
@@ -839,12 +850,14 @@ function NoteCard({
   note,
   onAttach,
   onPin,
+  studentName,
 }: {
   color: string;
   isPinned: boolean;
   note: NoteRecord;
   onAttach: () => void;
   onPin?: () => void;
+  studentName?: string;
 }) {
   return (
     <View style={[styles.keepCard, { backgroundColor: color }]}>
@@ -859,6 +872,7 @@ function NoteCard({
       <Text numberOfLines={6} style={styles.cardBody}>
         {note.content}
       </Text>
+      {studentName ? <Text style={styles.cardMeta}>{studentName}</Text> : null}
       {note.attachments?.length ? (
         <Text style={styles.cardMeta}>{note.attachments.length} attachment(s)</Text>
       ) : null}
