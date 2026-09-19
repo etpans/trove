@@ -103,6 +103,12 @@ type PendingAttachment = {
   id: string;
 };
 
+type AttachmentCaptionDraft = {
+  caption: string;
+  file: File;
+  noteId: number;
+};
+
 const queryClient = new QueryClient();
 
 const cardColors = [
@@ -205,6 +211,8 @@ function DashboardContent() {
   const [pendingNoteAttachments, setPendingNoteAttachments] = useState<
     PendingAttachment[]
   >([]);
+  const [attachmentCaptionDraft, setAttachmentCaptionDraft] =
+    useState<AttachmentCaptionDraft | null>(null);
   const [copiedShareId, setCopiedShareId] = useState<string | null>(null);
   const [profileOpen, setProfileOpen] = useState(false);
   const [studentSortMode, setStudentSortMode] =
@@ -649,23 +657,42 @@ function DashboardContent() {
     }
   }
 
-  async function handleAttachment(noteId: number, file?: File) {
+  function handleAttachment(noteId: number, file?: File) {
     if (!file) {
       return;
     }
 
+    setAttachmentCaptionDraft({
+      caption: "",
+      file,
+      noteId,
+    });
+  }
+
+  async function handleAttachmentCaptionSubmit(
+    event: FormEvent<HTMLFormElement>,
+  ) {
+    event.preventDefault();
+
+    if (!attachmentCaptionDraft) {
+      return;
+    }
+
     const formData = new FormData();
-    formData.append("file", file);
-    const caption = window.prompt("Caption for this attachment", "");
-    if (caption?.trim()) {
-      formData.append("caption", caption.trim());
+    formData.append("file", attachmentCaptionDraft.file);
+    if (attachmentCaptionDraft.caption.trim()) {
+      formData.append("caption", attachmentCaptionDraft.caption.trim());
     }
 
     setSubmitting(true);
     setFormError(null);
 
     try {
-      await fetchMultipartJson(`/api/notes/${noteId}/attachments`, formData);
+      await fetchMultipartJson(
+        `/api/notes/${attachmentCaptionDraft.noteId}/attachments`,
+        formData,
+      );
+      setAttachmentCaptionDraft(null);
       await invalidateDashboard();
     } catch (error) {
       setFormError(getErrorMessage(error));
@@ -1390,6 +1417,17 @@ function DashboardContent() {
         onCopyShare={handleCopyShare}
         onCreateShare={handleCreateShare}
         onRevokeShare={handleRevokeShare}
+        submitting={submitting}
+      />
+      <AttachmentCaptionDialog
+        draft={attachmentCaptionDraft}
+        onCaptionChange={(caption) =>
+          setAttachmentCaptionDraft((current) =>
+            current ? { ...current, caption } : current,
+          )
+        }
+        onClose={() => setAttachmentCaptionDraft(null)}
+        onSubmit={handleAttachmentCaptionSubmit}
         submitting={submitting}
       />
     </main>
@@ -2526,6 +2564,82 @@ function ShareDialog({
             )}
           </div>
         </section>
+      </section>
+    </div>
+  );
+}
+
+function AttachmentCaptionDialog({
+  draft,
+  onCaptionChange,
+  onClose,
+  onSubmit,
+  submitting,
+}: {
+  draft: AttachmentCaptionDraft | null;
+  onCaptionChange: (caption: string) => void;
+  onClose: () => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  submitting: boolean;
+}) {
+  if (!draft) {
+    return null;
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-[65] flex items-end justify-center bg-[#202124]/30 p-0 sm:items-center sm:p-6"
+      onClick={onClose}
+    >
+      <section
+        className="w-full max-w-md rounded-t-2xl bg-white p-5 shadow-[0_20px_70px_rgba(32,33,36,0.25)] sm:rounded-lg sm:p-6"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-4">
+          <ModalHeading
+            subtitle="Add a short label so the file is easier to recognize later."
+            title="Attach file"
+          />
+          <button
+            aria-label="Close attachment form"
+            className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-md text-[#5f6368] transition hover:bg-[#f1f3f4] active:scale-95"
+            onClick={onClose}
+            type="button"
+          >
+            <IconClose />
+          </button>
+        </div>
+
+        <form className="mt-5 grid gap-4" onSubmit={onSubmit}>
+          <div className="rounded-lg border border-[#eceff1] bg-[#f8fafd] p-3">
+            <p className="truncate text-sm font-semibold text-[#202124]">
+              {draft.file.name}
+            </p>
+            <p className="mt-1 text-xs text-[#6f7478]">
+              {formatFileSize(draft.file.size)}
+            </p>
+          </div>
+
+          <FieldLabel label="Caption" optional>
+            <input
+              className={inputClass}
+              onChange={(event) => onCaptionChange(event.target.value)}
+              placeholder="Student work sample, parent note, rubric..."
+              value={draft.caption}
+            />
+          </FieldLabel>
+
+          <div className="flex justify-end gap-2">
+            <ActionButton onClick={onClose}>Cancel</ActionButton>
+            <button
+              className="h-10 cursor-pointer rounded-md bg-[#1a73e8] px-4 text-sm font-semibold text-white transition hover:bg-[#1558b0] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={submitting}
+              type="submit"
+            >
+              {submitting ? "Attaching..." : "Attach file"}
+            </button>
+          </div>
+        </form>
       </section>
     </div>
   );
