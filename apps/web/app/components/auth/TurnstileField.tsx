@@ -11,7 +11,9 @@ declare global {
           callback: (token: string) => void;
           "error-callback": () => void;
           "expired-callback": () => void;
+          size?: "compact" | "flexible" | "normal";
           sitekey: string;
+          theme?: "auto" | "dark" | "light";
         },
       ) => string;
       remove: (widgetId: string) => void;
@@ -86,7 +88,9 @@ export default function TurnstileField({
             onError();
           },
           "expired-callback": () => onToken(""),
+          size: "flexible",
           sitekey: siteKey,
+          theme: "light",
         });
       })
       .catch(() => {
@@ -113,8 +117,11 @@ export default function TurnstileField({
   }
 
   return (
-    <div className="min-h-[65px]">
-      <div ref={containerRef} />
+    <div className="min-h-[65px] w-full">
+      <div
+        className="w-full [&>div]:w-full [&_iframe]:w-full"
+        ref={containerRef}
+      />
       {loadError ? (
         <p className="mt-2 text-sm text-[#b42318]">
           Unable to load verification. Check your connection and try again.
