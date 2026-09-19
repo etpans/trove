@@ -243,6 +243,16 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
     return { message: 'Logged out.' };
   }
 
+  async deleteAccount(userId: string) {
+    await this.rtRepository.update(
+      { userId, isRevoked: false },
+      { isRevoked: true },
+    );
+    await this.userRepository.delete({ id: userId });
+
+    return { deleted: true };
+  }
+
   async forgotPassword(email: string) {
     const user = await this.userRepository
       .createQueryBuilder('user')

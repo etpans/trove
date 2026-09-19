@@ -3,6 +3,7 @@ import {
   PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
+  DeleteDateColumn,
   ManyToOne,
   JoinColumn,
   OneToMany,
@@ -38,4 +39,8 @@ export class Class {
 
   @CreateDateColumn()
   createdAt: Date;
+
+  @Index()
+  @DeleteDateColumn({ type: 'timestamptz', nullable: true })
+  deletedAt?: Date | null;
 }

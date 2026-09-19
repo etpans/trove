@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 import { CreateStudentDto } from './dto/create-student.dto';
 import { UpdateStudentDto } from './dto/update-student.dto';
 import { Student } from './entities/student.entity';
@@ -17,7 +17,11 @@ export class StudentsService {
 
   async create(teacherId: string, createStudentDto: CreateStudentDto) {
     const classEntity = await this.classRepo.findOne({
-      where: { id: createStudentDto.classId, teacher: { id: teacherId } },
+      where: {
+        id: createStudentDto.classId,
+        deletedAt: IsNull(),
+        teacher: { id: teacherId },
+      },
     });
 
     if (!classEntity) {
@@ -32,6 +36,7 @@ export class StudentsService {
     return this.studentRepo.find({
       where: {
         class: {
+          deletedAt: IsNull(),
           teacher: {
             id: teacherId,
           },
@@ -48,6 +53,7 @@ export class StudentsService {
       where: {
         id,
         class: {
+          deletedAt: IsNull(),
           teacher: {
             id: teacherId,
           },
@@ -74,7 +80,11 @@ export class StudentsService {
 
     if (updateStudentDto.classId) {
       const classEntity = await this.classRepo.findOne({
-        where: { id: updateStudentDto.classId, teacher: { id: teacherId } },
+        where: {
+          id: updateStudentDto.classId,
+          deletedAt: IsNull(),
+          teacher: { id: teacherId },
+        },
       });
       if (!classEntity) {
         throw new NotFoundException(

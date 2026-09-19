@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In } from 'typeorm';
+import { Repository, In, IsNull } from 'typeorm';
 import { CreateNoteDto } from './dto/create-note.dto';
 import { UpdateNoteDto } from './dto/update-note.dto';
 import { Note } from './entities/note.entity';
@@ -39,6 +39,7 @@ export class NotesService {
       where: {
         id: createNoteDto.studentId,
         class: {
+          deletedAt: IsNull(),
           teacher: {
             id: teacherId,
           },
@@ -101,37 +102,31 @@ export class NotesService {
   }
 
   async findAll(teacherId: string) {
-    return this.noteRepo.find({
-      where: {
-        teacherId,
-      },
-      relations: {
-        student: true,
-        subject: true,
-        tags: true,
-        attachments: true,
-        shareLinks: true,
-      },
-      order: {
-        createdAt: 'DESC',
-      },
-    });
+    return this.noteRepo
+      .createQueryBuilder('note')
+      .leftJoinAndSelect('note.student', 'student')
+      .innerJoinAndSelect('student.class', 'class', 'class.deletedAt IS NULL')
+      .leftJoinAndSelect('note.subject', 'subject')
+      .leftJoinAndSelect('note.tags', 'tags')
+      .leftJoinAndSelect('note.attachments', 'attachments')
+      .leftJoinAndSelect('note.shareLinks', 'shareLinks')
+      .where('note.teacherId = :teacherId', { teacherId })
+      .orderBy('note.createdAt', 'DESC')
+      .getMany();
   }
 
   async findOne(teacherId: string, id: number) {
-    const note = await this.noteRepo.findOne({
-      where: {
-        id,
-        teacherId,
-      },
-      relations: {
-        student: true,
-        subject: true,
-        tags: true,
-        attachments: true,
-        shareLinks: true,
-      },
-    });
+    const note = await this.noteRepo
+      .createQueryBuilder('note')
+      .leftJoinAndSelect('note.student', 'student')
+      .innerJoinAndSelect('student.class', 'class', 'class.deletedAt IS NULL')
+      .leftJoinAndSelect('note.subject', 'subject')
+      .leftJoinAndSelect('note.tags', 'tags')
+      .leftJoinAndSelect('note.attachments', 'attachments')
+      .leftJoinAndSelect('note.shareLinks', 'shareLinks')
+      .where('note.id = :id', { id })
+      .andWhere('note.teacherId = :teacherId', { teacherId })
+      .getOne();
 
     if (!note) {
       throw new NotFoundException('Note not found');
@@ -148,6 +143,7 @@ export class NotesService {
         where: {
           id: updateNoteDto.studentId,
           class: {
+            deletedAt: IsNull(),
             teacher: {
               id: teacherId,
             },
