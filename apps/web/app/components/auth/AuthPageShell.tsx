@@ -7,9 +7,13 @@ import type { AuthMode } from "./auth-types";
 
 type AuthPageShellProps = {
   mode: AuthMode;
+  turnstileSiteKey?: string;
 };
 
-export default function AuthPageShell({ mode }: AuthPageShellProps) {
+export default function AuthPageShell({
+  mode,
+  turnstileSiteKey,
+}: AuthPageShellProps) {
   const router = useRouter();
   const isSignup = mode === "signup";
 
@@ -36,6 +40,7 @@ export default function AuthPageShell({ mode }: AuthPageShellProps) {
           <AuthForm
             mode={mode}
             onModeChange={(nextMode) => router.push(`/${nextMode}`)}
+            turnstileSiteKey={turnstileSiteKey}
           />
         </section>
       </div>

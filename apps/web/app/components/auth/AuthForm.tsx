@@ -6,15 +6,17 @@ import Divider from "@mui/material/Divider";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import AuthModeToggle from "./AuthModeToggle";
 import AuthProviderButton from "./AuthProviderButton";
 import FormTextField from "./FormTextField";
+import TurnstileField from "./TurnstileField";
 import { emptyAuthForm, type AuthMode } from "./auth-types";
 
 type AuthFormProps = {
   mode: AuthMode;
   onModeChange: (mode: AuthMode) => void;
+  turnstileSiteKey?: string;
 };
 
 type AuthApiResponse = {
@@ -39,6 +41,7 @@ async function submitAuthRequest(payload: {
   password?: string;
   provider?: "google";
   rememberMe?: boolean;
+  turnstileToken?: string;
 }) {
   const response = await fetch("/api/auth", {
     body: JSON.stringify(payload),
@@ -149,7 +152,11 @@ async function resetPassword(payload: {
   return data;
 }
 
-export default function AuthForm({ mode, onModeChange }: AuthFormProps) {
+export default function AuthForm({
+  mode,
+  onModeChange,
+  turnstileSiteKey,
+}: AuthFormProps) {
   const router = useRouter();
   const [form, setForm] = useState(emptyAuthForm);
   const [error, setError] = useState("");
@@ -168,6 +175,8 @@ export default function AuthForm({ mode, onModeChange }: AuthFormProps) {
     useState(false);
   const [isResettingPassword, setResettingPassword] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
 
   useEffect(() => {
     if (resendCooldown <= 0) {
@@ -217,6 +226,11 @@ export default function AuthForm({ mode, onModeChange }: AuthFormProps) {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!turnstileToken) {
+      setError("Complete the verification challenge before continuing.");
+      return;
+    }
+
     setSubmitting(true);
     setError("");
     setSuccessMessage("");
@@ -229,6 +243,7 @@ export default function AuthForm({ mode, onModeChange }: AuthFormProps) {
         name: form.name,
         password: form.password,
         rememberMe: form.rememberMe,
+        turnstileToken,
       });
       setSuccessMessage(data.message ?? "Request received.");
       setForm(emptyAuthForm);
@@ -265,6 +280,8 @@ export default function AuthForm({ mode, onModeChange }: AuthFormProps) {
       );
     } finally {
       setSubmitting(false);
+      setTurnstileToken("");
+      setTurnstileResetKey((current) => current + 1);
     }
   }
 
@@ -439,12 +456,17 @@ export default function AuthForm({ mode, onModeChange }: AuthFormProps) {
     setPasswordResetCooldown(0);
     setResendCooldown(0);
     setSuccessMessage("");
+    setTurnstileToken("");
+    setTurnstileResetKey((current) => current + 1);
   }
 
   const isPasswordTooShort =
     form.password.length > 0 && form.password.length < 8;
   const isNewPasswordTooShort =
     newPassword.length > 0 && newPassword.length < 8;
+  const handleTurnstileError = useCallback(() => {
+    setError("Verification failed to load. Please try again.");
+  }, []);
 
   return (
     <>
@@ -564,6 +586,13 @@ export default function AuthForm({ mode, onModeChange }: AuthFormProps) {
             </div>
           ) : null}
         </div>
+
+        <TurnstileField
+          key={`${mode}-${turnstileResetKey}`}
+          onError={handleTurnstileError}
+          onToken={setTurnstileToken}
+          siteKey={turnstileSiteKey}
+        />
 
         {error ? (
           <p className="rounded-lg bg-[#fff1f1] px-4 py-3 text-sm text-[#b42318]">
@@ -748,7 +777,7 @@ export default function AuthForm({ mode, onModeChange }: AuthFormProps) {
 
         <Button
           disableElevation
-          disabled={isSubmitting || isPasswordTooShort}
+          disabled={isSubmitting || isPasswordTooShort || !turnstileToken}
           fullWidth
           sx={{
             backgroundColor: "#378ADD",
