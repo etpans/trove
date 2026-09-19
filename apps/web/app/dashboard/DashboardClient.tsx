@@ -205,6 +205,9 @@ function DashboardContent() {
   const [noteForm, setNoteForm] = useState<NoteForm>(emptyNoteForm);
   const [pinnedNoteIds, setPinnedNoteIds] = useState<number[]>([]);
   const [selectedNoteId, setSelectedNoteId] = useState<number | null>(null);
+  const [deleteClassTarget, setDeleteClassTarget] =
+    useState<ClassRecord | null>(null);
+  const [deleteClassNameInput, setDeleteClassNameInput] = useState("");
   const [shareDialogNoteId, setShareDialogNoteId] = useState<number | null>(
     null,
   );
@@ -378,6 +381,12 @@ function DashboardContent() {
     setPendingNoteAttachments([]);
     setFormError(null);
     setCreateMode("note");
+  }
+
+  function openDeleteClassDialog(classItem: ClassRecord) {
+    setDeleteClassTarget(classItem);
+    setDeleteClassNameInput("");
+    setFormError(null);
   }
 
   function openNote(note: NoteRecord) {
@@ -578,14 +587,6 @@ function DashboardContent() {
   }
 
   async function handleDeleteClass(classItem: ClassRecord) {
-    const confirmed = window.confirm(
-      `Delete ${classItem.name}? This also removes its students and notes if the API allows it.`,
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
     setSubmitting(true);
     setFormError(null);
 
@@ -598,6 +599,8 @@ function DashboardContent() {
         setSelectedStudentId(null);
         setScreen("home");
       }
+      setDeleteClassTarget(null);
+      setDeleteClassNameInput("");
       await invalidateDashboard();
     } catch (error) {
       setFormError(getErrorMessage(error));
@@ -968,7 +971,7 @@ function DashboardContent() {
                       danger
                       onClick={(event) => {
                         event.stopPropagation();
-                        handleDeleteClass(classItem);
+                        openDeleteClassDialog(classItem);
                       }}
                     >
                       Delete
@@ -991,7 +994,7 @@ function DashboardContent() {
                     </ActionButton>
                     <ActionButton
                       danger
-                      onClick={() => handleDeleteClass(selectedClass)}
+                      onClick={() => openDeleteClassDialog(selectedClass)}
                     >
                       Delete class
                     </ActionButton>
@@ -1428,6 +1431,21 @@ function DashboardContent() {
         }
         onClose={() => setAttachmentCaptionDraft(null)}
         onSubmit={handleAttachmentCaptionSubmit}
+        submitting={submitting}
+      />
+      <DeleteClassDialog
+        classItem={deleteClassTarget}
+        confirmationValue={deleteClassNameInput}
+        onClose={() => {
+          setDeleteClassTarget(null);
+          setDeleteClassNameInput("");
+        }}
+        onConfirm={() => {
+          if (deleteClassTarget) {
+            void handleDeleteClass(deleteClassTarget);
+          }
+        }}
+        onConfirmationChange={setDeleteClassNameInput}
         submitting={submitting}
       />
     </main>
@@ -2637,6 +2655,95 @@ function AttachmentCaptionDialog({
               type="submit"
             >
               {submitting ? "Attaching..." : "Attach file"}
+            </button>
+          </div>
+        </form>
+      </section>
+    </div>
+  );
+}
+
+function DeleteClassDialog({
+  classItem,
+  confirmationValue,
+  onClose,
+  onConfirm,
+  onConfirmationChange,
+  submitting,
+}: {
+  classItem: ClassRecord | null;
+  confirmationValue: string;
+  onClose: () => void;
+  onConfirm: () => void;
+  onConfirmationChange: (value: string) => void;
+  submitting: boolean;
+}) {
+  if (!classItem) {
+    return null;
+  }
+
+  const canDelete = confirmationValue.trim() === classItem.name;
+
+  return (
+    <div
+      className="fixed inset-0 z-[65] flex items-end justify-center bg-[#202124]/30 p-0 sm:items-center sm:p-6"
+      onClick={onClose}
+    >
+      <section
+        className="w-full max-w-md rounded-t-2xl bg-white p-5 shadow-[0_20px_70px_rgba(32,33,36,0.25)] sm:rounded-lg sm:p-6"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-4">
+          <ModalHeading
+            subtitle="This will remove the class from your active dashboard. Type the class name to confirm."
+            title="Delete class"
+          />
+          <button
+            aria-label="Close delete confirmation"
+            className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-md text-[#5f6368] transition hover:bg-[#f1f3f4] active:scale-95"
+            onClick={onClose}
+            type="button"
+          >
+            <IconClose />
+          </button>
+        </div>
+
+        <div className="mt-5 rounded-lg border border-[#f2b8b5] bg-[#fff8f7] p-4">
+          <p className="text-sm font-semibold text-[#a50e0e]">
+            {classItem.name}
+          </p>
+          <p className="mt-1 text-sm leading-6 text-[#7a2e27]">
+            Students and notes attached to this class may no longer be visible
+            after deletion.
+          </p>
+        </div>
+
+        <form
+          className="mt-5 grid gap-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (canDelete) {
+              onConfirm();
+            }
+          }}
+        >
+          <FieldLabel label={`Type "${classItem.name}" to delete`}>
+            <input
+              className={inputClass}
+              onChange={(event) => onConfirmationChange(event.target.value)}
+              placeholder={classItem.name}
+              value={confirmationValue}
+            />
+          </FieldLabel>
+
+          <div className="flex justify-end gap-2">
+            <ActionButton onClick={onClose}>Cancel</ActionButton>
+            <button
+              className="h-10 cursor-pointer rounded-md bg-[#a50e0e] px-4 text-sm font-semibold text-white transition hover:bg-[#7f0b0b] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={!canDelete || submitting}
+              type="submit"
+            >
+              {submitting ? "Deleting..." : "Delete class"}
             </button>
           </div>
         </form>
