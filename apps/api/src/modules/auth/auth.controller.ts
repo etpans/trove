@@ -2,6 +2,7 @@ import {
   Controller,
   Post,
   Get,
+  Delete,
   Body,
   Request,
   UseGuards,
@@ -91,5 +92,11 @@ export class AuthController {
   @Get('profile')
   getProfile(@Request() req: JwtAuthRequest) {
     return req.user;
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Delete('account')
+  deleteAccount(@Request() req: JwtAuthRequest) {
+    return this.authService.deleteAccount(req.user.userId);
   }
 }

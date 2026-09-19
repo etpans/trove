@@ -12,6 +12,7 @@ import {
 import { ClassesService } from './classes.service';
 import { CreateClassDto } from './dto/create-class.dto';
 import { UpdateClassDto } from './dto/update-class.dto';
+import { ImportClassesCsvDto } from './dto/import-classes-csv.dto';
 import { AuthGuard } from '@nestjs/passport';
 
 @UseGuards(AuthGuard('jwt'))
@@ -27,6 +28,11 @@ export class ClassesController {
   @Get()
   findAll(@Request() req) {
     return this.classesService.findAll(req.user.userId);
+  }
+
+  @Post('import-csv')
+  importCsv(@Request() req, @Body() dto: ImportClassesCsvDto) {
+    return this.classesService.importCsv(req.user.userId, dto);
   }
 
   @Get(':id')
