@@ -1,5 +1,5 @@
 import LogoMark from "../brand/LogoMark";
-import SignUpCta from "../SignUpCta";
+import HeaderAuthActions from "./HeaderAuthActions";
 import { navLinks } from "./marketing-content";
 
 const navLinkClassName = "rounded-md px-3 py-2 hover:text-[#111111]";
@@ -26,12 +26,7 @@ export default function SiteHeader() {
               </a>
             </li>
           ))}
-          <li>
-            <SignUpCta label="Log in" mode="login" tone="text" />
-          </li>
-          <li>
-            <SignUpCta label="Start free" />
-          </li>
+          <HeaderAuthActions />
         </ul>
       </nav>
     </header>

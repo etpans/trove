@@ -9,6 +9,7 @@ type AuthPayload = {
   password?: string;
   provider?: "google";
   rememberMe?: boolean;
+  turnstileToken?: string;
 };
 
 function getAuthEndpoint(mode: "login" | "signup") {
@@ -41,6 +42,13 @@ export async function POST(request: Request) {
     );
   }
 
+  if (!body.turnstileToken) {
+    return NextResponse.json(
+      { message: "Verification is required." },
+      { status: 400 },
+    );
+  }
+
   const displayName = body.name?.trim();
   const email = body.email.trim();
 
@@ -58,10 +66,12 @@ export async function POST(request: Request) {
             displayName,
             email,
             password: body.password,
+            "cf-turnstile-response": body.turnstileToken,
           }
         : {
             email,
             password: body.password,
+            "cf-turnstile-response": body.turnstileToken,
           };
 
     const upstreamResponse = await fetch(getAuthEndpoint(body.mode), {

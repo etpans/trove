@@ -2,8 +2,14 @@ x 2026-09-05 2026-09-05 Deploy backend API to Render or Railway and configure pr
 x 2026-09-05 2026-09-05 Deploy frontend to Vercel and connect it to the hosted API +frontend +hosting +launch
 x 2026-09-05 2026-09-05 Connect production domain through Porkbun and Vercel DNS +frontend +domain +launch
 (A) Set up transactional email with Resend SMTP for verification and password reset codes +backend +email +auth +launch
+(A) Make the main dashboard functional and usable for daily teacher workflows +frontend +dashboard +ux
+(A) Improve dashboard class/student/note navigation, editing, filtering, and empty states +frontend +dashboard +notes +students +classes
+(A) Finish attachment workflows on the dashboard, including upload, preview, open, and note context +frontend +backend +attachments +notes +dashboard
+(A) Build mobile app core functionality against the backend +mobile +frontend +backend
+(A) Add mobile attachment capture, upload, listing, preview, and viewing flows +mobile +attachments +notes
+(A) Configure mobile production API environment and validate auth/session behavior +mobile +backend +auth +launch
+(A) Test mobile app attachment and note workflows on real iOS devices before TestFlight +mobile +ios +testing +attachments
 (A) Touch up login/register flow as dedicated pages instead of popups +frontend +auth +ux
-(A) When clicking login, check for an existing authenticated session before showing the login flow +frontend +auth +ux
 (A) Create Terms of Service page and link it from auth/signup surfaces +legal +frontend +launch
 (A) Create Privacy Policy page and link it from auth/signup surfaces +legal +frontend +launch
 (A) Add in-app account deletion flow for users +auth +legal +launch
@@ -19,16 +25,14 @@ x 2026-09-05 2026-09-05 Connect production domain through Porkbun and Vercel DNS
 (C) Connect Turnstile verification to auth requests +backend +auth +security
 (C) Fix verify-email "continue to login" behavior so it routes to the dedicated login page +frontend +auth
 (C) Add deletion confirmation and soft-delete retention for classes, such as 7 days before permanent removal +backend +frontend +classes +safety
-(C) Create mobile frontend and connect with backend +mobile +frontend +backend
 (C) Configure Expo iOS app metadata, bundle identifier, and build number +mobile +ios +launch
 (C) Set up EAS iOS build profiles for preview and production +mobile +ios +launch
 (C) Add iOS permission descriptions for mobile media features +mobile +ios +privacy
-(C) Configure mobile production API environment +mobile +backend +launch
-(C) Test mobile app on real iOS devices before TestFlight +mobile +ios +testing
 (C) Prepare App Store Connect listing, screenshots, privacy answers, and age rating +ios +launch
 (C) Submit first TestFlight build for beta review +mobile +ios +launch
 (C) Ensure iOS builds use the required Apple SDK toolchain +mobile +ios +launch
 (C) Understand and document the current frontend data flow +frontend +docs
+x 2026-09-07 2026-09-07 When clicking login or register on the main page, check for an existing authenticated session and redirect to the dashboard when present +frontend +auth +ux
 x 2026-07-06 2026-07-06 Create subject entity +backend
 x 2026-07-06 2026-07-06 Create classes entity +backend
 x 2026-07-09 2026-07-09 Create tags entity +backend

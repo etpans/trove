@@ -1,12 +1,19 @@
 {
   "expo": {
-    "name": "mobile",
-    "slug": "mobile",
+    "name": "Trove",
+    "slug": "trove",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
+      "buildNumber": "1",
+      "bundleIdentifier": "com.troveapp.mobile",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Trove uses the camera to attach classroom evidence to notes.",
+        "NSMicrophoneUsageDescription": "Trove may use the microphone when attaching classroom videos.",
+        "NSPhotoLibraryUsageDescription": "Trove uses your photo library to attach classroom evidence to notes."
+      },
       "supportsTablet": true
     },
     "android": {
@@ -20,6 +27,24 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "extra": {
+      "apiBaseUrl": "$EXPO_PUBLIC_API_BASE_URL",
+      "eas": {
+        "projectId": "replace-with-eas-project-id"
+      }
+    },
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Trove uses the camera to attach classroom evidence to notes.",
+          "microphonePermission": "Trove may use the microphone when attaching classroom videos.",
+          "photosPermission": "Trove uses your photo library to attach classroom evidence to notes."
+        }
+      ],
+      "expo-secure-store",
+      "expo-status-bar"
+    ]
   }
 }

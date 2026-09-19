@@ -102,7 +102,7 @@ export default function VerifyEmailStatus() {
           <div className="mt-7">
             <Button
               disableElevation
-              href="/"
+              href="/login"
               sx={{
                 backgroundColor: "#378ADD",
                 borderRadius: "10px",
