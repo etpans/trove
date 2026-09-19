@@ -1230,7 +1230,7 @@ function DashboardContent() {
               value={studentForm.name}
             />
             </FieldLabel>
-            <FieldLabel label="Roll number">
+            <FieldLabel label="Roll number" optional>
             <input
               className={inputClass}
               onChange={(event) =>
@@ -1268,7 +1268,7 @@ function DashboardContent() {
               value={studentForm.name}
             />
             </FieldLabel>
-            <FieldLabel label="Roll number">
+            <FieldLabel label="Roll number" optional>
             <input
               className={inputClass}
               onChange={(event) =>
@@ -2246,13 +2246,20 @@ function ModalHeading({
 function FieldLabel({
   children,
   label,
+  optional = false,
 }: {
   children: React.ReactNode;
   label: string;
+  optional?: boolean;
 }) {
   return (
     <label className="grid gap-1.5 text-sm font-semibold text-[#3c4043]">
-      <span>{label}</span>
+      <span>
+        {label}
+        {optional ? (
+          <span className="ml-1 font-normal text-[#80868b]">(optional)</span>
+        ) : null}
+      </span>
       {children}
     </label>
   );
