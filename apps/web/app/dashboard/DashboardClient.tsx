@@ -872,7 +872,7 @@ function DashboardContent() {
 
   return (
     <main className="min-h-screen bg-white text-[#202124]">
-      <header className="sticky top-0 z-20 border-b border-[#eceff1] bg-white/95 px-4 py-3 backdrop-blur">
+      <header className="sticky top-0 z-50 border-b border-[#eceff1] bg-white/95 px-4 py-3 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center gap-3">
           <button
             aria-label="Open students"
@@ -901,7 +901,6 @@ function DashboardContent() {
             Refresh
           </button>
           <ProfileMenu
-            onClose={() => setProfileOpen(false)}
             onLogout={handleLogout}
             onToggle={() => setProfileOpen((current) => !current)}
             open={profileOpen}
@@ -909,6 +908,15 @@ function DashboardContent() {
           />
         </div>
       </header>
+
+      {profileOpen ? (
+        <button
+          aria-label="Close account menu"
+          className="fixed inset-0 z-40 cursor-default bg-transparent"
+          onClick={() => setProfileOpen(false)}
+          type="button"
+        />
+      ) : null}
 
       <section className="mx-auto max-w-6xl px-5 pb-28 pt-7">
         {pageError ? <ErrorBanner message={getErrorMessage(pageError)} /> : null}
@@ -2395,13 +2403,11 @@ function PendingAttachmentPicker({
 }
 
 function ProfileMenu({
-  onClose,
   onLogout,
   onToggle,
   open,
   user,
 }: {
-  onClose: () => void;
   onLogout: () => void;
   onToggle: () => void;
   open: boolean;
@@ -2412,18 +2418,10 @@ function ProfileMenu({
 
   return (
     <div className="relative">
-      {open ? (
-        <button
-          aria-label="Close account menu"
-          className="fixed inset-0 z-30 cursor-default bg-transparent"
-          onClick={onClose}
-          type="button"
-        />
-      ) : null}
       <button
         aria-expanded={open}
         aria-label="Account settings"
-        className="relative z-40 flex h-11 cursor-pointer items-center gap-2 rounded-full border border-[#dfe3e7] bg-white px-2 pr-3 text-sm font-semibold text-[#3c4043] shadow-[0_1px_2px_rgba(60,64,67,0.08)] transition hover:bg-[#f8f9fa] hover:shadow-[0_2px_8px_rgba(60,64,67,0.14)] active:scale-[0.98]"
+        className="relative z-[60] flex h-11 cursor-pointer items-center gap-2 rounded-full border border-[#dfe3e7] bg-white px-2 pr-3 text-sm font-semibold text-[#3c4043] shadow-[0_1px_2px_rgba(60,64,67,0.08)] transition hover:bg-[#f8f9fa] hover:shadow-[0_2px_8px_rgba(60,64,67,0.14)] active:scale-[0.98]"
         onClick={onToggle}
         type="button"
       >
@@ -2433,7 +2431,7 @@ function ProfileMenu({
         <span className="hidden max-w-36 truncate sm:block">{email}</span>
       </button>
       {open ? (
-        <div className="absolute right-0 top-12 z-40 w-72 rounded-lg border border-[#dfe3e7] bg-white p-2 shadow-[0_12px_32px_rgba(60,64,67,0.2)]">
+        <div className="absolute right-0 top-12 z-[60] w-72 rounded-lg border border-[#dfe3e7] bg-white p-2 shadow-[0_12px_32px_rgba(60,64,67,0.2)]">
           <div className="flex items-center gap-3 rounded-md px-3 py-3">
             <span className="grid h-10 w-10 place-items-center rounded-full bg-[#e8f0fe] text-sm font-bold text-[#1967d2]">
               {initials}
