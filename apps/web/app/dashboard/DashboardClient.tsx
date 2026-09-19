@@ -89,6 +89,12 @@ type NoteForm = {
   title: string;
 };
 
+type PendingAttachment = {
+  caption: string;
+  file: File;
+  id: string;
+};
+
 const queryClient = new QueryClient();
 
 const cardColors = [
@@ -185,7 +191,14 @@ function DashboardContent() {
   const [noteForm, setNoteForm] = useState<NoteForm>(emptyNoteForm);
   const [pinnedNoteIds, setPinnedNoteIds] = useState<number[]>([]);
   const [selectedNoteId, setSelectedNoteId] = useState<number | null>(null);
+  const [shareDialogNoteId, setShareDialogNoteId] = useState<number | null>(
+    null,
+  );
+  const [pendingNoteAttachments, setPendingNoteAttachments] = useState<
+    PendingAttachment[]
+  >([]);
   const [copiedShareId, setCopiedShareId] = useState<string | null>(null);
+  const [profileOpen, setProfileOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -224,6 +237,7 @@ function DashboardContent() {
     return student.id === selectedStudentId;
   });
   const selectedNote = notes.find((note) => note.id === selectedNoteId);
+  const shareDialogNote = notes.find((note) => note.id === shareDialogNoteId);
   const classStudents = useMemo(() => {
     return selectedClassId
       ? students
@@ -325,6 +339,7 @@ function DashboardContent() {
       ...emptyNoteForm,
       studentId: studentId ? String(studentId) : "",
     });
+    setPendingNoteAttachments([]);
     setFormError(null);
     setCreateMode("note");
   }
@@ -458,7 +473,7 @@ function DashboardContent() {
     setFormError(null);
 
     try {
-      await fetchJson<NoteRecord>("/api/notes", {
+      const createdNote = await fetchJson<NoteRecord>("/api/notes", {
         body: JSON.stringify({
           content: noteForm.content,
           studentId,
@@ -466,7 +481,24 @@ function DashboardContent() {
         }),
         method: "POST",
       });
+
+      await Promise.all(
+        pendingNoteAttachments.map((attachment) => {
+          const formData = new FormData();
+          formData.append("file", attachment.file);
+          if (attachment.caption.trim()) {
+            formData.append("caption", attachment.caption.trim());
+          }
+
+          return fetchMultipartJson(
+            `/api/notes/${createdNote.id}/attachments`,
+            formData,
+          );
+        }),
+      );
+
       setNoteForm(emptyNoteForm);
+      setPendingNoteAttachments([]);
       setCreateMode(null);
       await invalidateDashboard();
     } catch (error) {
@@ -684,6 +716,47 @@ function DashboardContent() {
     }
   }
 
+  function handlePendingAttachment(file?: File) {
+    if (!file) {
+      return;
+    }
+
+    setPendingNoteAttachments((current) => [
+      ...current,
+      {
+        caption: "",
+        file,
+        id: `${file.name}-${file.lastModified}-${crypto.randomUUID()}`,
+      },
+    ]);
+  }
+
+  function updatePendingAttachmentCaption(id: string, caption: string) {
+    setPendingNoteAttachments((current) =>
+      current.map((attachment) => {
+        if (attachment.id !== id) {
+          return attachment;
+        }
+
+        return {
+          ...attachment,
+          caption,
+        };
+      }),
+    );
+  }
+
+  function removePendingAttachment(id: string) {
+    setPendingNoteAttachments((current) =>
+      current.filter((attachment) => attachment.id !== id),
+    );
+  }
+
+  async function handleLogout() {
+    await fetch("/api/auth/logout", { method: "POST" }).catch(() => undefined);
+    window.location.href = "/login";
+  }
+
   async function handleCopyShare(shareLink: ShareLinkRecord) {
     try {
       await copyShareLink(shareLink);
@@ -745,7 +818,7 @@ function DashboardContent() {
         <div className="mx-auto flex max-w-6xl items-center gap-3">
           <button
             aria-label="Open students"
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-2xl text-[#5f6368] transition hover:bg-[#f1f3f4] disabled:opacity-30"
+            className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-md text-2xl text-[#5f6368] transition hover:bg-[#f1f3f4] active:scale-95 disabled:cursor-not-allowed disabled:opacity-30"
             disabled={screen === "home"}
             onClick={() => setDrawerOpen(true)}
             type="button"
@@ -763,12 +836,18 @@ function DashboardContent() {
             value={search}
           />
           <button
-            className="hidden h-11 rounded-md px-3 text-sm font-semibold text-[#3c4043] transition hover:bg-[#f1f3f4] sm:block"
+            className="hidden h-11 cursor-pointer rounded-md px-3 text-sm font-semibold text-[#3c4043] transition hover:bg-[#f1f3f4] active:scale-95 sm:block"
             onClick={() => invalidateDashboard()}
             type="button"
           >
             Refresh
           </button>
+          <ProfileMenu
+            onLogout={handleLogout}
+            onToggle={() => setProfileOpen((current) => !current)}
+            open={profileOpen}
+            user={sessionQuery.data?.user}
+          />
         </div>
       </header>
 
@@ -786,6 +865,11 @@ function DashboardContent() {
               title="Classes"
             />
             <KeepGrid
+              emptyActionLabel="Create class"
+              onEmptyAction={() => {
+                setFormError(null);
+                setCreateMode("class");
+              }}
               emptyText={
                 search.trim()
                   ? "No classes match your search."
@@ -794,14 +878,14 @@ function DashboardContent() {
               items={visibleClasses}
               renderItem={(classItem, index) => (
                 <article
-                  className="min-h-40 rounded-lg p-5 text-left transition hover:-translate-y-0.5 hover:shadow-[0_8px_24px_rgba(60,64,67,0.16)]"
+                  className="min-h-40 rounded-lg p-5 text-left transition duration-150 hover:-translate-y-0.5 hover:shadow-[0_8px_24px_rgba(60,64,67,0.16)]"
                   key={classItem.id}
                   style={{
                     backgroundColor: getCardColor(index, classItem.color),
                   }}
                 >
                   <button
-                    className="block w-full text-left"
+                    className="block w-full cursor-pointer rounded-md text-left outline-none transition focus-visible:ring-2 focus-visible:ring-[#202124]/30"
                     onClick={() => openClass(classItem.id)}
                     type="button"
                   >
@@ -857,10 +941,26 @@ function DashboardContent() {
             />
             <StudentStrip
               onEditStudent={openEditStudent}
+              onNewStudent={() => {
+                setStudentForm(emptyStudentForm);
+                setFormError(null);
+                setCreateMode("student");
+              }}
               onOpenStudent={openStudent}
               students={classStudents}
             />
             <KeepGrid
+              emptyActionLabel={classStudents.length ? "Create note" : "Create student"}
+              onEmptyAction={() => {
+                if (classStudents.length) {
+                  openCreateNote();
+                  return;
+                }
+
+                setStudentForm(emptyStudentForm);
+                setFormError(null);
+                setCreateMode("student");
+              }}
               emptyText={
                 search.trim()
                   ? "No notes match your search."
@@ -874,7 +974,7 @@ function DashboardContent() {
                   note={note}
                   onAttach={handleAttachment}
                   onOpen={() => openNote(note)}
-                  onShare={() => handleCreateShare(note.id)}
+                  onShare={() => setShareDialogNoteId(note.id)}
                   studentName={
                     students.find((student) => student.id === note.studentId)
                       ?.name
@@ -910,6 +1010,8 @@ function DashboardContent() {
               title={selectedStudent?.name || "Student"}
             />
             <KeepGrid
+              emptyActionLabel="Create note"
+              onEmptyAction={() => openCreateNote(selectedStudentId || undefined)}
               emptyText={
                 search.trim()
                   ? "No notes match your search."
@@ -925,7 +1027,7 @@ function DashboardContent() {
                   onAttach={handleAttachment}
                   onOpen={() => openNote(note)}
                   onPin={() => togglePinned(note.id)}
-                  onShare={() => handleCreateShare(note.id)}
+                  onShare={() => setShareDialogNoteId(note.id)}
                 />
               )}
             />
@@ -935,7 +1037,7 @@ function DashboardContent() {
 
       <button
         aria-label="Create"
-        className="fixed bottom-7 right-7 z-30 flex h-16 w-16 items-center justify-center rounded-full bg-white text-5xl leading-none text-[#4285f4] shadow-[0_8px_28px_rgba(60,64,67,0.32)] transition hover:scale-105"
+        className="fixed bottom-7 right-7 z-30 grid h-16 w-16 cursor-pointer place-items-center rounded-full bg-[#1a73e8] text-white shadow-[0_10px_30px_rgba(26,115,232,0.35)] transition duration-150 hover:scale-105 hover:bg-[#1558b0] hover:shadow-[0_14px_36px_rgba(26,115,232,0.42)] active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#1a73e8]"
         onClick={() => {
           if (screen === "home") {
             setFormError(null);
@@ -949,7 +1051,7 @@ function DashboardContent() {
         }}
         type="button"
       >
-        +
+        <span className="-mt-1 text-[42px] font-light leading-none">+</span>
       </button>
 
       <StudentDrawer
@@ -962,9 +1064,12 @@ function DashboardContent() {
       <CreateModal onClose={() => setCreateMode(null)} open={createMode !== null}>
         {createMode === "classActions" ? (
           <div>
-            <h2 className="text-2xl font-semibold">Create</h2>
+            <ModalHeading
+              subtitle="Choose what you want to add to this class."
+              title="Create"
+            />
             <button
-              className="mt-5 block w-full border-b border-[#eceff1] py-4 text-left text-lg font-semibold"
+              className="mt-5 block w-full cursor-pointer rounded-md border border-[#eceff1] px-4 py-4 text-left text-base font-semibold transition hover:bg-[#f8f9fa] active:scale-[0.99]"
               onClick={() => {
                 setStudentForm(emptyStudentForm);
                 setCreateMode("student");
@@ -974,7 +1079,7 @@ function DashboardContent() {
               Student
             </button>
             <button
-              className="block w-full border-b border-[#eceff1] py-4 text-left text-lg font-semibold"
+              className="mt-2 block w-full cursor-pointer rounded-md border border-[#eceff1] px-4 py-4 text-left text-base font-semibold transition hover:bg-[#f8f9fa] active:scale-[0.99]"
               onClick={() => openCreateNote()}
               type="button"
             >
@@ -989,8 +1094,10 @@ function DashboardContent() {
             onSubmit={handleCreateClass}
             submitting={submitting}
             submitText="Create class"
+            subtitle="Give the class a name and session date."
             title="New class"
           >
+            <FieldLabel label="Class name">
             <input
               className={inputClass}
               onChange={(event) =>
@@ -1002,6 +1109,8 @@ function DashboardContent() {
               placeholder="Class name"
               value={classForm.name}
             />
+            </FieldLabel>
+            <FieldLabel label="Session date">
             <input
               className={inputClass}
               onChange={(event) =>
@@ -1013,6 +1122,7 @@ function DashboardContent() {
               type="date"
               value={classForm.session}
             />
+            </FieldLabel>
           </CreateForm>
         ) : null}
 
@@ -1022,8 +1132,10 @@ function DashboardContent() {
             onSubmit={handleUpdateClass}
             submitting={submitting}
             submitText="Save class"
+            subtitle="Update class details."
             title="Edit class"
           >
+            <FieldLabel label="Class name">
             <input
               className={inputClass}
               onChange={(event) =>
@@ -1035,6 +1147,8 @@ function DashboardContent() {
               placeholder="Class name"
               value={classForm.name}
             />
+            </FieldLabel>
+            <FieldLabel label="Session date">
             <input
               className={inputClass}
               onChange={(event) =>
@@ -1046,6 +1160,7 @@ function DashboardContent() {
               type="date"
               value={classForm.session}
             />
+            </FieldLabel>
           </CreateForm>
         ) : null}
 
@@ -1055,8 +1170,10 @@ function DashboardContent() {
             onSubmit={handleCreateStudent}
             submitting={submitting}
             submitText="Create student"
+            subtitle="Add a student to the selected class."
             title="New student"
           >
+            <FieldLabel label="Student name">
             <input
               className={inputClass}
               onChange={(event) =>
@@ -1068,6 +1185,8 @@ function DashboardContent() {
               placeholder="Student name"
               value={studentForm.name}
             />
+            </FieldLabel>
+            <FieldLabel label="Roll number">
             <input
               className={inputClass}
               onChange={(event) =>
@@ -1079,6 +1198,7 @@ function DashboardContent() {
               placeholder="Roll number"
               value={studentForm.rollNumber}
             />
+            </FieldLabel>
           </CreateForm>
         ) : null}
 
@@ -1088,8 +1208,10 @@ function DashboardContent() {
             onSubmit={handleUpdateStudent}
             submitting={submitting}
             submitText="Save student"
+            subtitle="Update student details."
             title="Edit student"
           >
+            <FieldLabel label="Student name">
             <input
               className={inputClass}
               onChange={(event) =>
@@ -1101,6 +1223,8 @@ function DashboardContent() {
               placeholder="Student name"
               value={studentForm.name}
             />
+            </FieldLabel>
+            <FieldLabel label="Roll number">
             <input
               className={inputClass}
               onChange={(event) =>
@@ -1112,6 +1236,7 @@ function DashboardContent() {
               placeholder="Roll number"
               value={studentForm.rollNumber}
             />
+            </FieldLabel>
           </CreateForm>
         ) : null}
 
@@ -1121,6 +1246,7 @@ function DashboardContent() {
             onSubmit={handleCreateNote}
             submitting={submitting}
             submitText="Create note"
+            subtitle="Capture an observation and attach files before saving."
             title="New note"
           >
             {screen === "class" ? (
@@ -1130,7 +1256,7 @@ function DashboardContent() {
 
                   return (
                     <button
-                      className={`shrink-0 rounded-full border px-3 py-2 text-sm font-semibold transition ${
+                      className={`shrink-0 cursor-pointer rounded-full border px-3 py-2 text-sm font-semibold transition hover:-translate-y-0.5 ${
                         selected
                           ? "border-[#202124] bg-[#202124] text-white"
                           : "border-[#dfe3e7] bg-white text-[#3c4043]"
@@ -1150,6 +1276,7 @@ function DashboardContent() {
                 })}
               </div>
             ) : null}
+            <FieldLabel label="Title">
             <input
               className={inputClass}
               onChange={(event) =>
@@ -1161,6 +1288,8 @@ function DashboardContent() {
               placeholder="Title"
               value={noteForm.title}
             />
+            </FieldLabel>
+            <FieldLabel label="Note">
             <textarea
               className={`${inputClass} min-h-32 py-3`}
               onChange={(event) =>
@@ -1172,12 +1301,19 @@ function DashboardContent() {
               placeholder="Note"
               value={noteForm.content}
             />
+            </FieldLabel>
+            <PendingAttachmentPicker
+              attachments={pendingNoteAttachments}
+              onAdd={handlePendingAttachment}
+              onCaptionChange={updatePendingAttachmentCaption}
+              onRemove={removePendingAttachment}
+            />
           </CreateForm>
         ) : null}
 
         {createMode === "classActions" ? (
           <button
-            className="mt-6 h-12 w-full rounded-md border border-[#dfe3e7] text-sm font-semibold"
+            className="mt-6 h-12 w-full cursor-pointer rounded-md border border-[#dfe3e7] text-sm font-semibold transition hover:bg-[#f8f9fa] active:scale-[0.99]"
             onClick={() => setCreateMode(null)}
             type="button"
           >
@@ -1197,11 +1333,19 @@ function DashboardContent() {
         onDeleteAttachment={handleDeleteAttachment}
         onDeleteNote={handleDeleteNote}
         onReplaceAttachment={handleReplaceAttachment}
-        onRevokeShare={handleRevokeShare}
-        onShare={handleCreateShare}
+        onShare={(noteId) => setShareDialogNoteId(noteId)}
         onSubmit={handleUpdateNote}
         setNoteForm={setNoteForm}
         students={classStudents}
+        submitting={submitting}
+      />
+      <ShareDialog
+        copiedShareId={copiedShareId}
+        note={shareDialogNote}
+        onClose={() => setShareDialogNoteId(null)}
+        onCopyShare={handleCopyShare}
+        onCreateShare={handleCreateShare}
+        onRevokeShare={handleRevokeShare}
         submitting={submitting}
       />
     </main>
@@ -1225,7 +1369,7 @@ function BoardTitle({
         {onBack ? (
           <button
             aria-label="Back"
-            className="flex h-10 w-10 items-center justify-center rounded-md text-3xl text-[#3c4043] transition hover:bg-[#f1f3f4]"
+            className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-md text-3xl text-[#3c4043] transition hover:bg-[#f1f3f4] active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1a73e8]"
             onClick={onBack}
             type="button"
           >
@@ -1245,18 +1389,31 @@ function BoardTitle({
 }
 
 function KeepGrid<T>({
+  emptyActionLabel,
   emptyText,
   items,
+  onEmptyAction,
   renderItem,
 }: {
+  emptyActionLabel?: string;
   emptyText: string;
   items: T[];
+  onEmptyAction?: () => void;
   renderItem: (item: T, index: number) => React.ReactNode;
 }) {
   if (items.length === 0) {
     return (
-      <div className="flex min-h-72 items-center justify-center rounded-md border border-dashed border-[#dfe3e7] px-6 text-center text-[#6f7478]">
-        {emptyText}
+      <div className="flex min-h-72 flex-col items-center justify-center rounded-lg border border-dashed border-[#dfe3e7] bg-[#f8fafd] px-6 text-center text-[#6f7478]">
+        <p className="max-w-sm text-sm leading-6">{emptyText}</p>
+        {emptyActionLabel && onEmptyAction ? (
+          <button
+            className="mt-4 inline-flex h-10 cursor-pointer items-center justify-center rounded-md bg-[#202124] px-4 text-sm font-semibold text-white transition hover:bg-black active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1a73e8]"
+            onClick={onEmptyAction}
+            type="button"
+          >
+            {emptyActionLabel}
+          </button>
+        ) : null}
       </div>
     );
   }
@@ -1270,26 +1427,39 @@ function KeepGrid<T>({
 
 function StudentStrip({
   onEditStudent,
+  onNewStudent,
   onOpenStudent,
   students,
 }: {
   onEditStudent: (student: StudentRecord) => void;
+  onNewStudent: () => void;
   onOpenStudent: (studentId: number) => void;
   students: StudentRecord[];
 }) {
   if (!students.length) {
-    return null;
+    return (
+      <div className="mb-5 rounded-lg border border-dashed border-[#dfe3e7] bg-[#f8fafd] px-5 py-4">
+        <p className="text-sm text-[#6f7478]">No students in this class yet.</p>
+        <button
+          className="mt-3 inline-flex h-10 cursor-pointer items-center justify-center rounded-md bg-[#202124] px-4 text-sm font-semibold text-white transition hover:bg-black active:scale-[0.98]"
+          onClick={onNewStudent}
+          type="button"
+        >
+          Create student
+        </button>
+      </div>
+    );
   }
 
   return (
     <div className="mb-5 flex gap-2 overflow-x-auto pb-1">
       {students.map((student) => (
         <div
-          className="flex shrink-0 items-center overflow-hidden rounded-full border border-[#dfe3e7] bg-white"
+          className="flex shrink-0 items-center overflow-hidden rounded-full border border-[#dfe3e7] bg-white shadow-[0_1px_2px_rgba(60,64,67,0.08)] transition hover:shadow-[0_2px_8px_rgba(60,64,67,0.12)]"
           key={student.id}
         >
           <button
-            className="px-3 py-2 text-sm font-semibold text-[#303134] transition hover:bg-[#f8f9fa]"
+            className="cursor-pointer px-3 py-2 text-sm font-semibold text-[#303134] transition hover:bg-[#f8f9fa] active:scale-[0.98]"
             onClick={() => onOpenStudent(student.id)}
             type="button"
           >
@@ -1297,7 +1467,7 @@ function StudentStrip({
           </button>
           <button
             aria-label={`Edit ${student.name}`}
-            className="border-l border-[#dfe3e7] px-2 py-2 text-xs font-semibold text-[#5f6368] transition hover:bg-[#f8f9fa]"
+            className="cursor-pointer border-l border-[#dfe3e7] px-2 py-2 text-xs font-semibold text-[#5f6368] transition hover:bg-[#f8f9fa]"
             onClick={() => onEditStudent(student)}
             type="button"
           >
@@ -1333,17 +1503,17 @@ function NoteCard({
 
   return (
     <article
-      className="min-h-44 rounded-lg p-5 text-[#202124]"
+      className="min-h-44 rounded-lg p-4 text-[#202124] shadow-[0_1px_2px_rgba(60,64,67,0.08)] transition duration-150 hover:-translate-y-0.5 hover:shadow-[0_8px_24px_rgba(60,64,67,0.16)] sm:p-5"
       style={{ backgroundColor: color }}
     >
       <div className="flex items-start gap-3">
-        <h2 className="min-w-0 flex-1 text-xl font-semibold leading-snug">
+        <h2 className="min-w-0 flex-1 text-lg font-semibold leading-snug sm:text-xl">
           {note.title}
         </h2>
         {onPin ? (
           <button
             aria-label={isPinned ? "Unpin note" : "Pin note"}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/35 text-lg"
+            className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full bg-white/40 text-lg transition hover:bg-white/70 active:scale-95"
             onClick={onPin}
             type="button"
           >
@@ -1351,7 +1521,11 @@ function NoteCard({
           </button>
         ) : null}
       </div>
-      <button className="mt-3 block w-full text-left" onClick={onOpen} type="button">
+      <button
+        className="mt-3 block w-full cursor-pointer rounded-md text-left outline-none transition focus-visible:ring-2 focus-visible:ring-[#202124]/30"
+        onClick={onOpen}
+        type="button"
+      >
         <p className="line-clamp-5 whitespace-pre-line text-sm leading-6 text-[#3c4043]">
           {note.content || "No body content"}
         </p>
@@ -1370,7 +1544,7 @@ function NoteCard({
         <div className="mt-4 grid gap-2">
           {note.attachments.map((attachment, index) => (
             <a
-              className="block truncate rounded-md bg-white/45 px-3 py-2 text-xs font-semibold text-[#303134] transition hover:bg-white/70"
+              className="block truncate rounded-md bg-white/45 px-3 py-2 text-xs font-semibold text-[#303134] transition hover:bg-white/75 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#202124]/30"
               href={attachment.fileUrl}
               key={attachment.id}
               rel="noreferrer"
@@ -1381,25 +1555,27 @@ function NoteCard({
           ))}
         </div>
       ) : null}
-      <div className="mt-5 flex items-center justify-between gap-3">
-        <span className="text-xs text-[#5f6368]">{formatDate(note.createdAt)}</span>
-        <div className="flex gap-2">
+      <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <span className="text-xs text-[#5f6368]">
+          {formatDate(note.createdAt)}
+        </span>
+        <div className="flex flex-wrap gap-2">
           <button
-            className="rounded-full bg-white/45 px-3 py-1.5 text-xs font-semibold text-[#303134] transition hover:bg-white/70"
+            className="cursor-pointer rounded-full bg-white/45 px-3 py-1.5 text-xs font-semibold text-[#303134] transition hover:bg-white/75 active:scale-95"
             onClick={onOpen}
             type="button"
           >
             Open
           </button>
           <button
-            className="rounded-full bg-white/45 px-3 py-1.5 text-xs font-semibold text-[#303134] transition hover:bg-white/70"
+            className="cursor-pointer rounded-full bg-white/45 px-3 py-1.5 text-xs font-semibold text-[#303134] transition hover:bg-white/75 active:scale-95"
             onClick={onShare}
             type="button"
           >
             Share
           </button>
           <button
-            className="rounded-full bg-white/45 px-3 py-1.5 text-xs font-semibold text-[#303134] transition hover:bg-white/70"
+            className="cursor-pointer rounded-full bg-white/45 px-3 py-1.5 text-xs font-semibold text-[#303134] transition hover:bg-white/75 active:scale-95"
             onClick={() => fileInputRef.current?.click()}
             type="button"
           >
@@ -1442,7 +1618,7 @@ function StudentDrawer({
           <h2 className="text-2xl font-semibold">Students</h2>
           <button
             aria-label="Close students"
-            className="flex h-10 w-10 items-center justify-center rounded-md text-xl transition hover:bg-[#f1f3f4]"
+            className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-md text-xl transition hover:bg-[#f1f3f4] active:scale-95"
             onClick={onClose}
             type="button"
           >
@@ -1455,7 +1631,7 @@ function StudentDrawer({
           ) : (
             students.map((student) => (
               <button
-                className="block w-full border-b border-[#eceff1] py-4 text-left transition hover:bg-[#f8f9fa]"
+                className="block w-full cursor-pointer border-b border-[#eceff1] py-4 text-left transition hover:bg-[#f8f9fa]"
                 key={student.id}
                 onClick={() => onOpenStudent(student.id)}
                 type="button"
@@ -1488,7 +1664,6 @@ function NoteModal({
   onDeleteAttachment,
   onDeleteNote,
   onReplaceAttachment,
-  onRevokeShare,
   onShare,
   onSubmit,
   setNoteForm,
@@ -1509,7 +1684,6 @@ function NoteModal({
     attachmentId: string,
     file?: File,
   ) => void;
-  onRevokeShare: (shareLink: ShareLinkRecord) => void;
   onShare: (noteId: number) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   setNoteForm: React.Dispatch<React.SetStateAction<NoteForm>>;
@@ -1532,7 +1706,7 @@ function NoteModal({
           </p>
           <button
             aria-label="Close note"
-            className="flex h-9 w-9 items-center justify-center rounded-md text-lg transition hover:bg-[#f1f3f4]"
+            className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-md text-lg transition hover:bg-[#f1f3f4] active:scale-95"
             onClick={onClose}
             type="button"
           >
@@ -1582,7 +1756,7 @@ function NoteModal({
           />
           <div className="flex flex-wrap gap-2">
             <button
-              className="h-11 rounded-md bg-[#202124] px-4 text-sm font-semibold text-white transition hover:bg-black disabled:opacity-60"
+              className="h-11 cursor-pointer rounded-md bg-[#202124] px-4 text-sm font-semibold text-white transition hover:bg-black active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
               disabled={submitting}
               type="submit"
             >
@@ -1630,12 +1804,8 @@ function NoteModal({
         <section className="mt-8 border-t border-[#eceff1] pt-5">
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-lg font-semibold">Sharing</h2>
-            <ActionButton
-              onClick={() =>
-                activeShare ? onCopyShare(activeShare) : onShare(note.id)
-              }
-            >
-              {activeShare ? "Copy link" : "Create link"}
+            <ActionButton onClick={() => onShare(note.id)}>
+              Share settings
             </ActionButton>
           </div>
           {activeShare ? (
@@ -1646,9 +1816,6 @@ function NoteModal({
               <div className="mt-3 flex flex-wrap gap-2">
                 <ActionButton onClick={() => onCopyShare(activeShare)}>
                   {copiedShareId === activeShare.id ? "Copied" : "Copy"}
-                </ActionButton>
-                <ActionButton danger onClick={() => onRevokeShare(activeShare)}>
-                  Revoke
                 </ActionButton>
               </div>
             </div>
@@ -1682,7 +1849,7 @@ function AttachmentRow({
     <div className="rounded-md border border-[#dfe3e7] p-3">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <a
-          className="min-w-0 flex-1 truncate text-sm font-semibold text-[#202124] underline-offset-4 hover:underline"
+          className="min-w-0 flex-1 truncate text-sm font-semibold text-[#202124] underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1a73e8]"
           href={attachment.fileUrl}
           rel="noreferrer"
           target="_blank"
@@ -1732,7 +1899,7 @@ function ActionButton({
 }) {
   return (
     <button
-      className={`h-9 rounded-md border px-3 text-sm font-semibold transition ${
+      className={`h-9 cursor-pointer rounded-md border px-3 text-sm font-semibold transition active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1a73e8] ${
         danger
           ? "border-[#f2b8b5] text-[#a50e0e] hover:bg-[#fce8e6]"
           : "border-[#dfe3e7] text-[#303134] hover:bg-[#f8f9fa]"
@@ -1760,11 +1927,11 @@ function CreateModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#202124]/30 p-0 sm:items-center sm:p-6">
-      <div className="w-full max-w-lg rounded-t-2xl bg-white p-6 shadow-[0_20px_70px_rgba(32,33,36,0.25)] sm:rounded-lg">
+      <div className="w-full max-w-lg translate-y-0 rounded-t-2xl bg-white p-5 shadow-[0_20px_70px_rgba(32,33,36,0.25)] transition sm:rounded-lg sm:p-6">
         <div className="flex justify-end">
           <button
             aria-label="Close modal"
-            className="flex h-9 w-9 items-center justify-center rounded-md text-lg transition hover:bg-[#f1f3f4]"
+            className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-md text-lg transition hover:bg-[#f1f3f4] active:scale-95"
             onClick={onClose}
             type="button"
           >
@@ -1782,6 +1949,7 @@ function CreateForm({
   error,
   onSubmit,
   submitting,
+  subtitle,
   submitText,
   title,
 }: {
@@ -1789,22 +1957,313 @@ function CreateForm({
   error: string | null;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   submitting: boolean;
+  subtitle?: string;
   submitText: string;
   title: string;
 }) {
   return (
-    <form className="grid gap-3" onSubmit={onSubmit}>
-      <h2 className="text-2xl font-semibold">{title}</h2>
+    <form className="grid gap-4" onSubmit={onSubmit}>
+      <ModalHeading subtitle={subtitle} title={title} />
       {error ? <ErrorBanner message={error} /> : null}
       {children}
       <button
-        className="mt-2 h-12 rounded-md bg-[#202124] px-4 text-sm font-semibold text-white transition hover:bg-black disabled:opacity-60"
+        className="mt-1 h-11 cursor-pointer rounded-md bg-[#202124] px-4 text-sm font-semibold text-white transition hover:bg-black active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
         disabled={submitting}
         type="submit"
       >
         {submitting ? "Saving..." : submitText}
       </button>
     </form>
+  );
+}
+
+function ModalHeading({
+  subtitle,
+  title,
+}: {
+  subtitle?: string;
+  title: string;
+}) {
+  return (
+    <div>
+      <h2 className="text-2xl font-semibold tracking-normal text-[#202124]">
+        {title}
+      </h2>
+      {subtitle ? (
+        <p className="mt-1 text-sm leading-6 text-[#6f7478]">{subtitle}</p>
+      ) : null}
+    </div>
+  );
+}
+
+function FieldLabel({
+  children,
+  label,
+}: {
+  children: React.ReactNode;
+  label: string;
+}) {
+  return (
+    <label className="grid gap-1.5 text-sm font-semibold text-[#3c4043]">
+      <span>{label}</span>
+      {children}
+    </label>
+  );
+}
+
+function PendingAttachmentPicker({
+  attachments,
+  onAdd,
+  onCaptionChange,
+  onRemove,
+}: {
+  attachments: PendingAttachment[];
+  onAdd: (file?: File) => void;
+  onCaptionChange: (id: string, caption: string) => void;
+  onRemove: (id: string) => void;
+}) {
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  return (
+    <section className="rounded-lg border border-[#dfe3e7] bg-[#f8fafd] p-3">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-sm font-semibold text-[#202124]">Attachments</p>
+          <p className="text-xs text-[#6f7478]">Add files before saving.</p>
+        </div>
+        <ActionButton onClick={() => fileInputRef.current?.click()}>
+          Add file
+        </ActionButton>
+      </div>
+      {attachments.length ? (
+        <div className="mt-3 grid gap-2">
+          {attachments.map((attachment) => (
+            <div
+              className="rounded-md border border-[#eceff1] bg-white p-3"
+              key={attachment.id}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-[#202124]">
+                    {attachment.file.name}
+                  </p>
+                  <p className="mt-1 text-xs text-[#6f7478]">
+                    {formatFileSize(attachment.file.size)}
+                  </p>
+                </div>
+                <button
+                  className="cursor-pointer rounded-md px-2 py-1 text-xs font-semibold text-[#a50e0e] transition hover:bg-[#fce8e6]"
+                  onClick={() => onRemove(attachment.id)}
+                  type="button"
+                >
+                  Remove
+                </button>
+              </div>
+              <input
+                className="mt-3 min-h-10 w-full rounded-md border border-[#dfe3e7] px-3 text-sm outline-none transition placeholder:text-[#80868b] focus:border-[#4285f4]"
+                onChange={(event) =>
+                  onCaptionChange(attachment.id, event.target.value)
+                }
+                placeholder="Caption"
+                value={attachment.caption}
+              />
+            </div>
+          ))}
+        </div>
+      ) : null}
+      <input
+        className="hidden"
+        onChange={(event) => {
+          onAdd(event.target.files?.[0]);
+          event.target.value = "";
+        }}
+        ref={fileInputRef}
+        type="file"
+      />
+    </section>
+  );
+}
+
+function ProfileMenu({
+  onLogout,
+  onToggle,
+  open,
+  user,
+}: {
+  onLogout: () => void;
+  onToggle: () => void;
+  open: boolean;
+  user?: SessionState["user"];
+}) {
+  const email = user?.email || "Account";
+  const initials = getInitials(email);
+
+  return (
+    <div className="relative">
+      <button
+        aria-expanded={open}
+        aria-label="Account settings"
+        className="flex h-11 cursor-pointer items-center gap-2 rounded-full border border-[#dfe3e7] bg-white px-2 pr-3 text-sm font-semibold text-[#3c4043] shadow-[0_1px_2px_rgba(60,64,67,0.08)] transition hover:bg-[#f8f9fa] hover:shadow-[0_2px_8px_rgba(60,64,67,0.14)] active:scale-[0.98]"
+        onClick={onToggle}
+        type="button"
+      >
+        <span className="grid h-8 w-8 place-items-center rounded-full bg-[#e8f0fe] text-xs font-bold text-[#1967d2]">
+          {initials}
+        </span>
+        <span className="hidden max-w-36 truncate sm:block">{email}</span>
+      </button>
+      {open ? (
+        <div className="absolute right-0 top-12 z-40 w-72 rounded-lg border border-[#dfe3e7] bg-white p-2 shadow-[0_12px_32px_rgba(60,64,67,0.2)]">
+          <div className="flex items-center gap-3 rounded-md px-3 py-3">
+            <span className="grid h-10 w-10 place-items-center rounded-full bg-[#e8f0fe] text-sm font-bold text-[#1967d2]">
+              {initials}
+            </span>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-[#202124]">
+                {email}
+              </p>
+              <p className="text-xs text-[#6f7478]">Profile picture ready</p>
+            </div>
+          </div>
+          <button
+            className="mt-1 block w-full cursor-not-allowed rounded-md px-3 py-2 text-left text-sm font-semibold text-[#80868b]"
+            disabled
+            type="button"
+          >
+            Settings coming soon
+          </button>
+          <button
+            className="mt-1 block w-full cursor-pointer rounded-md px-3 py-2 text-left text-sm font-semibold text-[#a50e0e] transition hover:bg-[#fce8e6]"
+            onClick={onLogout}
+            type="button"
+          >
+            Log out
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function ShareDialog({
+  copiedShareId,
+  note,
+  onClose,
+  onCopyShare,
+  onCreateShare,
+  onRevokeShare,
+  submitting,
+}: {
+  copiedShareId: string | null;
+  note?: NoteRecord;
+  onClose: () => void;
+  onCopyShare: (shareLink: ShareLinkRecord) => void;
+  onCreateShare: (noteId: number) => void;
+  onRevokeShare: (shareLink: ShareLinkRecord) => void;
+  submitting: boolean;
+}) {
+  const activeShare = note ? getActiveShareLink(note) : undefined;
+
+  if (!note) {
+    return null;
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-[60] flex items-end justify-center bg-[#202124]/30 p-0 sm:items-center sm:p-6"
+      onClick={onClose}
+    >
+      <section
+        className="w-full max-w-xl rounded-t-2xl bg-white p-5 shadow-[0_20px_70px_rgba(32,33,36,0.25)] sm:rounded-lg sm:p-6"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <h2 className="truncate text-2xl font-semibold text-[#202124]">
+              Share note
+            </h2>
+            <p className="mt-1 truncate text-sm text-[#6f7478]">{note.title}</p>
+          </div>
+          <button
+            aria-label="Close sharing"
+            className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-md text-lg transition hover:bg-[#f1f3f4] active:scale-95"
+            onClick={onClose}
+            type="button"
+          >
+            x
+          </button>
+        </div>
+
+        <section className="mt-5 rounded-lg border border-[#dfe3e7] p-4">
+          <label className="grid gap-2 text-sm font-semibold text-[#3c4043]">
+            Share with people
+            <input
+              className="min-h-11 rounded-md border border-[#dfe3e7] bg-[#f8f9fa] px-3 text-sm text-[#80868b]"
+              disabled
+              placeholder="Email sharing is not enabled yet"
+            />
+          </label>
+          <p className="mt-2 text-xs leading-5 text-[#6f7478]">
+            The backend currently supports shareable links. Email-specific access
+            can be added when recipient permissions are implemented.
+          </p>
+        </section>
+
+        <section className="mt-4 rounded-lg border border-[#dfe3e7] p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h3 className="text-sm font-semibold text-[#202124]">
+                General access
+              </h3>
+              <p className="mt-1 text-xs leading-5 text-[#6f7478]">
+                {activeShare
+                  ? "Anyone with the link can view this shared note."
+                  : "Create a link before this note can be shared."}
+              </p>
+            </div>
+            <span
+              className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                activeShare
+                  ? "bg-[#e6f4ea] text-[#137333]"
+                  : "bg-[#f1f3f4] text-[#5f6368]"
+              }`}
+            >
+              {activeShare ? "Link active" : "Restricted"}
+            </span>
+          </div>
+
+          {activeShare ? (
+            <div className="mt-4 rounded-md bg-[#f8fafd] p-3">
+              <p className="break-all text-sm text-[#3c4043]">
+                {getShareUrl(activeShare.token)}
+              </p>
+            </div>
+          ) : null}
+
+          <div className="mt-4 flex flex-wrap justify-end gap-2">
+            {activeShare ? (
+              <>
+                <ActionButton onClick={() => onCopyShare(activeShare)}>
+                  {copiedShareId === activeShare.id ? "Copied" : "Copy link"}
+                </ActionButton>
+                <ActionButton danger onClick={() => onRevokeShare(activeShare)}>
+                  Revoke link
+                </ActionButton>
+              </>
+            ) : (
+              <button
+                className="h-10 cursor-pointer rounded-md bg-[#1a73e8] px-4 text-sm font-semibold text-white transition hover:bg-[#1558b0] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={submitting}
+                onClick={() => onCreateShare(note.id)}
+                type="button"
+              >
+                {submitting ? "Creating..." : "Create share link"}
+              </button>
+            )}
+          </div>
+        </section>
+      </section>
+    </div>
   );
 }
 
@@ -1958,6 +2417,36 @@ function formatDate(value?: string | null) {
     month: "short",
     year: "numeric",
   }).format(date);
+}
+
+function formatFileSize(bytes: number) {
+  if (bytes < 1024) {
+    return `${bytes} B`;
+  }
+
+  const kilobytes = bytes / 1024;
+  if (kilobytes < 1024) {
+    return `${kilobytes.toFixed(1)} KB`;
+  }
+
+  return `${(kilobytes / 1024).toFixed(1)} MB`;
+}
+
+function getInitials(value: string) {
+  const [namePart] = value.split("@");
+  const parts = namePart
+    .split(/[.\s_-]+/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  if (parts.length === 0) {
+    return "A";
+  }
+
+  return parts
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("");
 }
 
 function getAttachmentLabel(attachment: NoteAttachmentRecord, index: number) {
