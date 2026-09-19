@@ -3,8 +3,6 @@
 import Button from "@mui/material/Button";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import PopupForm from "../PopupForm";
-import type { AuthMode } from "../auth/auth-types";
 
 type SessionResponse = {
   authenticated?: boolean;
@@ -32,9 +30,6 @@ function buttonStyles(tone: "primary" | "text") {
 
 export default function HeaderAuthActions() {
   const router = useRouter();
-  const [authMode, setAuthMode] = useState<AuthMode>("signup");
-  const [dialogKey, setDialogKey] = useState(0);
-  const [isOpen, setOpen] = useState(false);
   const [isAuthenticated, setAuthenticated] = useState(false);
   const [isCheckingSession, setCheckingSession] = useState(true);
   const [isLoggingOut, setLoggingOut] = useState(false);
@@ -71,12 +66,6 @@ export default function HeaderAuthActions() {
       isMounted = false;
     };
   }, []);
-
-  function openAuth(mode: AuthMode) {
-    setAuthMode(mode);
-    setDialogKey((currentKey) => currentKey + 1);
-    setOpen(true);
-  }
 
   async function handleLogout() {
     setLoggingOut(true);
@@ -123,7 +112,7 @@ export default function HeaderAuthActions() {
       <li>
         <Button
           disabled={isCheckingSession}
-          onClick={() => openAuth("login")}
+          onClick={() => router.push("/login")}
           sx={buttonStyles("text")}
           variant="text"
         >
@@ -134,20 +123,13 @@ export default function HeaderAuthActions() {
         <Button
           disabled={isCheckingSession}
           disableElevation
-          onClick={() => openAuth("signup")}
+          onClick={() => router.push("/signup")}
           sx={buttonStyles("primary")}
           variant="contained"
         >
           {isCheckingSession ? "Checking..." : "Start free"}
         </Button>
       </li>
-
-      <PopupForm
-        key={`${authMode}-${dialogKey}`}
-        initialMode={authMode}
-        isOpen={isOpen}
-        onClose={() => setOpen(false)}
-      />
     </>
   );
 }
