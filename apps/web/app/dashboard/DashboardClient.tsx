@@ -7,7 +7,13 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import Link from "next/link";
-import { useMemo, useRef, useState, type FormEvent } from "react";
+import {
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+  type MouseEvent,
+} from "react";
 
 type SessionState = {
   authenticated: boolean;
@@ -27,6 +33,8 @@ type CreateMode =
   | "editClass"
   | "editStudent"
   | null;
+type StudentSortMode = "lastName" | "firstName" | "newest";
+type StudentViewMode = "chips" | "list";
 
 type ClassRecord = {
   color?: string;
@@ -199,6 +207,10 @@ function DashboardContent() {
   >([]);
   const [copiedShareId, setCopiedShareId] = useState<string | null>(null);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [studentSortMode, setStudentSortMode] =
+    useState<StudentSortMode>("lastName");
+  const [studentViewMode, setStudentViewMode] =
+    useState<StudentViewMode>("chips");
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -239,6 +251,22 @@ function DashboardContent() {
   const selectedNote = notes.find((note) => note.id === selectedNoteId);
   const shareDialogNote = notes.find((note) => note.id === shareDialogNoteId);
   const classStudents = useMemo(() => {
+    const nextStudents = selectedClassId
+      ? students.filter((student) => student.classId === selectedClassId)
+      : [];
+
+    if (studentSortMode === "newest") {
+      return nextStudents.sort((a, b) => compareDates(a.createdAt, b.createdAt));
+    }
+
+    if (studentSortMode === "firstName") {
+      return nextStudents.sort((a, b) => a.name.localeCompare(b.name));
+    }
+
+    return nextStudents.sort(sortStudentsByName);
+  }, [selectedClassId, studentSortMode, students]);
+
+  const drawerStudents = useMemo(() => {
     return selectedClassId
       ? students
           .filter((student) => student.classId === selectedClassId)
@@ -823,7 +851,7 @@ function DashboardContent() {
             onClick={() => setDrawerOpen(true)}
             type="button"
           >
-            ☰
+            <IconMenu />
           </button>
           <input
             className="h-12 min-w-0 flex-1 rounded-md border border-[#eceff1] bg-white px-4 text-base shadow-[0_1px_4px_rgba(60,64,67,0.18)] outline-none transition placeholder:text-[#80868b] focus:border-[#4285f4]"
@@ -843,6 +871,7 @@ function DashboardContent() {
             Refresh
           </button>
           <ProfileMenu
+            onClose={() => setProfileOpen(false)}
             onLogout={handleLogout}
             onToggle={() => setProfileOpen((current) => !current)}
             open={profileOpen}
@@ -878,31 +907,42 @@ function DashboardContent() {
               items={visibleClasses}
               renderItem={(classItem, index) => (
                 <article
-                  className="min-h-40 rounded-lg p-5 text-left transition duration-150 hover:-translate-y-0.5 hover:shadow-[0_8px_24px_rgba(60,64,67,0.16)]"
+                  className="min-h-40 cursor-pointer rounded-lg p-5 text-left transition duration-150 hover:-translate-y-0.5 hover:shadow-[0_8px_24px_rgba(60,64,67,0.16)] focus-within:ring-2 focus-within:ring-[#202124]/20"
                   key={classItem.id}
+                  onClick={() => openClass(classItem.id)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      openClass(classItem.id);
+                    }
+                  }}
+                  role="button"
                   style={{
                     backgroundColor: getCardColor(index, classItem.color),
                   }}
+                  tabIndex={0}
                 >
-                  <button
-                    className="block w-full cursor-pointer rounded-md text-left outline-none transition focus-visible:ring-2 focus-visible:ring-[#202124]/30"
-                    onClick={() => openClass(classItem.id)}
-                    type="button"
-                  >
-                    <span className="block text-2xl font-semibold leading-tight">
-                      {classItem.name}
-                    </span>
-                    <span className="mt-5 block text-sm text-[#5f6368]">
-                      {formatDate(classItem.session)}
-                    </span>
-                  </button>
+                  <span className="block text-2xl font-semibold leading-tight">
+                    {classItem.name}
+                  </span>
+                  <span className="mt-5 block text-sm text-[#5f6368]">
+                    {formatDate(classItem.session)}
+                  </span>
                   <div className="mt-6 flex gap-2">
-                    <ActionButton onClick={() => openEditClass(classItem)}>
+                    <ActionButton
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        openEditClass(classItem);
+                      }}
+                    >
                       Edit
                     </ActionButton>
                     <ActionButton
                       danger
-                      onClick={() => handleDeleteClass(classItem)}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        handleDeleteClass(classItem);
+                      }}
                     >
                       Delete
                     </ActionButton>
@@ -947,7 +987,11 @@ function DashboardContent() {
                 setCreateMode("student");
               }}
               onOpenStudent={openStudent}
+              onSortChange={setStudentSortMode}
+              onViewChange={setStudentViewMode}
+              sortMode={studentSortMode}
               students={classStudents}
+              viewMode={studentViewMode}
             />
             <KeepGrid
               emptyActionLabel={classStudents.length ? "Create note" : "Create student"}
@@ -1051,14 +1095,14 @@ function DashboardContent() {
         }}
         type="button"
       >
-        <span className="-mt-1 text-[42px] font-light leading-none">+</span>
+        <IconPlus />
       </button>
 
       <StudentDrawer
         onClose={() => setDrawerOpen(false)}
         onOpenStudent={openStudent}
         open={drawerOpen}
-        students={classStudents}
+        students={drawerStudents}
       />
 
       <CreateModal onClose={() => setCreateMode(null)} open={createMode !== null}>
@@ -1256,10 +1300,10 @@ function DashboardContent() {
 
                   return (
                     <button
-                      className={`shrink-0 cursor-pointer rounded-full border px-3 py-2 text-sm font-semibold transition hover:-translate-y-0.5 ${
+                      className={`shrink-0 cursor-pointer rounded-full border px-3 py-2 text-sm font-semibold transition ${
                         selected
                           ? "border-[#202124] bg-[#202124] text-white"
-                          : "border-[#dfe3e7] bg-white text-[#3c4043]"
+                          : "border-[#dfe3e7] bg-white text-[#3c4043] hover:bg-[#f1f3f4]"
                       }`}
                       key={student.id}
                       onClick={() =>
@@ -1369,11 +1413,11 @@ function BoardTitle({
         {onBack ? (
           <button
             aria-label="Back"
-            className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-md text-3xl text-[#3c4043] transition hover:bg-[#f1f3f4] active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1a73e8]"
+            className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-md text-[#3c4043] transition hover:bg-[#f1f3f4] active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1a73e8]"
             onClick={onBack}
             type="button"
           >
-            {"<"}
+            <IconBack />
           </button>
         ) : null}
         <div>
@@ -1429,12 +1473,20 @@ function StudentStrip({
   onEditStudent,
   onNewStudent,
   onOpenStudent,
+  onSortChange,
+  onViewChange,
+  sortMode,
   students,
+  viewMode,
 }: {
   onEditStudent: (student: StudentRecord) => void;
   onNewStudent: () => void;
   onOpenStudent: (studentId: number) => void;
+  onSortChange: (mode: StudentSortMode) => void;
+  onViewChange: (mode: StudentViewMode) => void;
+  sortMode: StudentSortMode;
   students: StudentRecord[];
+  viewMode: StudentViewMode;
 }) {
   if (!students.length) {
     return (
@@ -1452,30 +1504,114 @@ function StudentStrip({
   }
 
   return (
-    <div className="mb-5 flex gap-2 overflow-x-auto pb-1">
-      {students.map((student) => (
-        <div
-          className="flex shrink-0 items-center overflow-hidden rounded-full border border-[#dfe3e7] bg-white shadow-[0_1px_2px_rgba(60,64,67,0.08)] transition hover:shadow-[0_2px_8px_rgba(60,64,67,0.12)]"
-          key={student.id}
-        >
-          <button
-            className="cursor-pointer px-3 py-2 text-sm font-semibold text-[#303134] transition hover:bg-[#f8f9fa] active:scale-[0.98]"
-            onClick={() => onOpenStudent(student.id)}
-            type="button"
-          >
-            {student.name}
-          </button>
-          <button
-            aria-label={`Edit ${student.name}`}
-            className="cursor-pointer border-l border-[#dfe3e7] px-2 py-2 text-xs font-semibold text-[#5f6368] transition hover:bg-[#f8f9fa]"
-            onClick={() => onEditStudent(student)}
-            type="button"
-          >
-            Edit
-          </button>
+    <section className="mb-5 rounded-lg border border-[#eceff1] bg-white p-3 shadow-[0_1px_2px_rgba(60,64,67,0.08)]">
+      <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-sm font-semibold text-[#202124]">Students</p>
+          <p className="text-xs text-[#6f7478]">
+            Sort and open student views for this class.
+          </p>
         </div>
-      ))}
-    </div>
+        <div className="flex flex-wrap gap-2">
+          <select
+            className="h-9 cursor-pointer rounded-md border border-[#dfe3e7] bg-white px-2 text-sm font-semibold text-[#303134] outline-none transition hover:bg-[#f8f9fa] focus:border-[#1a73e8]"
+            onChange={(event) =>
+              onSortChange(event.target.value as StudentSortMode)
+            }
+            value={sortMode}
+          >
+            <option value="lastName">Last name</option>
+            <option value="firstName">First name</option>
+            <option value="newest">Newest</option>
+          </select>
+          <SegmentButton
+            active={viewMode === "chips"}
+            onClick={() => onViewChange("chips")}
+          >
+            Chips
+          </SegmentButton>
+          <SegmentButton
+            active={viewMode === "list"}
+            onClick={() => onViewChange("list")}
+          >
+            List
+          </SegmentButton>
+          <ActionButton onClick={onNewStudent}>New student</ActionButton>
+        </div>
+      </div>
+
+      <div
+        className={
+          viewMode === "list"
+            ? "grid gap-2 sm:grid-cols-2 lg:grid-cols-3"
+            : "flex gap-2 overflow-x-auto pb-1"
+        }
+      >
+        {students.map((student) => (
+          <div
+            className={
+              viewMode === "list"
+                ? "flex items-center justify-between gap-3 rounded-md border border-[#dfe3e7] bg-[#f8fafd] px-3 py-2"
+                : "flex shrink-0 items-center overflow-hidden rounded-full border border-[#dfe3e7] bg-white shadow-[0_1px_2px_rgba(60,64,67,0.08)] transition hover:shadow-[0_2px_8px_rgba(60,64,67,0.12)]"
+            }
+            key={student.id}
+          >
+            <button
+              className={
+                viewMode === "list"
+                  ? "min-w-0 flex-1 cursor-pointer text-left text-sm font-semibold text-[#303134] transition hover:text-[#1a73e8]"
+                  : "cursor-pointer px-3 py-2 text-sm font-semibold text-[#303134] transition hover:bg-[#f8f9fa] active:scale-[0.98]"
+              }
+              onClick={() => onOpenStudent(student.id)}
+              type="button"
+            >
+              <span className="block truncate">{student.name}</span>
+              {viewMode === "list" && student.rollNumber ? (
+                <span className="mt-0.5 block truncate text-xs font-normal text-[#6f7478]">
+                  {student.rollNumber}
+                </span>
+              ) : null}
+            </button>
+            <button
+              aria-label={`Edit ${student.name}`}
+              className={
+                viewMode === "list"
+                  ? "cursor-pointer rounded-md px-2 py-1 text-xs font-semibold text-[#5f6368] transition hover:bg-white"
+                  : "cursor-pointer border-l border-[#dfe3e7] px-2 py-2 text-xs font-semibold text-[#5f6368] transition hover:bg-[#f8f9fa]"
+              }
+              onClick={() => onEditStudent(student)}
+              type="button"
+            >
+              Edit
+            </button>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function SegmentButton({
+  active,
+  children,
+  onClick,
+}: {
+  active: boolean;
+  children: React.ReactNode;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      className={`h-9 cursor-pointer rounded-md border px-3 text-sm font-semibold transition active:scale-[0.98] ${
+        active
+          ? "border-[#202124] bg-[#202124] text-white"
+          : "border-[#dfe3e7] bg-white text-[#303134] hover:bg-[#f8f9fa]"
+      }`}
+      onClick={onClick}
+      type="button"
+    >
+      {children}
+    </button>
   );
 }
 
@@ -1503,8 +1639,17 @@ function NoteCard({
 
   return (
     <article
-      className="min-h-44 rounded-lg p-4 text-[#202124] shadow-[0_1px_2px_rgba(60,64,67,0.08)] transition duration-150 hover:-translate-y-0.5 hover:shadow-[0_8px_24px_rgba(60,64,67,0.16)] sm:p-5"
+      className="min-h-44 cursor-pointer rounded-lg p-4 text-[#202124] shadow-[0_1px_2px_rgba(60,64,67,0.08)] transition duration-150 hover:-translate-y-0.5 hover:shadow-[0_8px_24px_rgba(60,64,67,0.16)] focus-within:ring-2 focus-within:ring-[#202124]/20 sm:p-5"
+      onClick={onOpen}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onOpen();
+        }
+      }}
+      role="button"
       style={{ backgroundColor: color }}
+      tabIndex={0}
     >
       <div className="flex items-start gap-3">
         <h2 className="min-w-0 flex-1 text-lg font-semibold leading-snug sm:text-xl">
@@ -1514,22 +1659,21 @@ function NoteCard({
           <button
             aria-label={isPinned ? "Unpin note" : "Pin note"}
             className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full bg-white/40 text-lg transition hover:bg-white/70 active:scale-95"
-            onClick={onPin}
+            onClick={(event) => {
+              event.stopPropagation();
+              onPin();
+            }}
             type="button"
           >
-            {isPinned ? "*" : "^"}
+            {isPinned ? <IconPinned /> : <IconPin />}
           </button>
         ) : null}
       </div>
-      <button
-        className="mt-3 block w-full cursor-pointer rounded-md text-left outline-none transition focus-visible:ring-2 focus-visible:ring-[#202124]/30"
-        onClick={onOpen}
-        type="button"
-      >
+      <div className="mt-3 block w-full rounded-md text-left">
         <p className="line-clamp-5 whitespace-pre-line text-sm leading-6 text-[#3c4043]">
           {note.content || "No body content"}
         </p>
-      </button>
+      </div>
       {studentName ? (
         <p className="mt-4 text-xs font-semibold text-[#5f6368]">
           {studentName}
@@ -1547,6 +1691,7 @@ function NoteCard({
               className="block truncate rounded-md bg-white/45 px-3 py-2 text-xs font-semibold text-[#303134] transition hover:bg-white/75 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#202124]/30"
               href={attachment.fileUrl}
               key={attachment.id}
+              onClick={(event) => event.stopPropagation()}
               rel="noreferrer"
               target="_blank"
             >
@@ -1562,21 +1707,30 @@ function NoteCard({
         <div className="flex flex-wrap gap-2">
           <button
             className="cursor-pointer rounded-full bg-white/45 px-3 py-1.5 text-xs font-semibold text-[#303134] transition hover:bg-white/75 active:scale-95"
-            onClick={onOpen}
+            onClick={(event) => {
+              event.stopPropagation();
+              onOpen();
+            }}
             type="button"
           >
             Open
           </button>
           <button
             className="cursor-pointer rounded-full bg-white/45 px-3 py-1.5 text-xs font-semibold text-[#303134] transition hover:bg-white/75 active:scale-95"
-            onClick={onShare}
+            onClick={(event) => {
+              event.stopPropagation();
+              onShare();
+            }}
             type="button"
           >
             Share
           </button>
           <button
             className="cursor-pointer rounded-full bg-white/45 px-3 py-1.5 text-xs font-semibold text-[#303134] transition hover:bg-white/75 active:scale-95"
-            onClick={() => fileInputRef.current?.click()}
+            onClick={(event) => {
+              event.stopPropagation();
+              fileInputRef.current?.click();
+            }}
             type="button"
           >
             + media
@@ -1584,6 +1738,7 @@ function NoteCard({
         </div>
         <input
           className="hidden"
+          onClick={(event) => event.stopPropagation()}
           onChange={(event) => onAttach(note.id, event.target.files?.[0])}
           ref={fileInputRef}
           type="file"
@@ -1618,11 +1773,11 @@ function StudentDrawer({
           <h2 className="text-2xl font-semibold">Students</h2>
           <button
             aria-label="Close students"
-            className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-md text-xl transition hover:bg-[#f1f3f4] active:scale-95"
+            className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-md text-[#5f6368] transition hover:bg-[#f1f3f4] active:scale-95"
             onClick={onClose}
             type="button"
           >
-            x
+            <IconClose />
           </button>
         </div>
         <div className="mt-5">
@@ -1698,19 +1853,25 @@ function NoteModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#202124]/30 p-0 sm:items-center sm:p-6">
-      <section className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-t-2xl bg-white p-6 shadow-[0_20px_70px_rgba(32,33,36,0.25)] sm:rounded-lg">
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-[#202124]/30 p-0 sm:items-center sm:p-6"
+      onClick={onClose}
+    >
+      <section
+        className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-t-2xl bg-white p-6 shadow-[0_20px_70px_rgba(32,33,36,0.25)] sm:rounded-lg"
+        onClick={(event) => event.stopPropagation()}
+      >
         <div className="flex items-center justify-between gap-3">
           <p className="text-sm font-semibold text-[#6f7478]">
             {note.student?.name || "Student note"}
           </p>
           <button
             aria-label="Close note"
-            className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-md text-lg transition hover:bg-[#f1f3f4] active:scale-95"
+            className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-md text-[#5f6368] transition hover:bg-[#f1f3f4] active:scale-95"
             onClick={onClose}
             type="button"
           >
-            x
+            <IconClose />
           </button>
         </div>
 
@@ -1888,6 +2049,88 @@ function AttachmentRow({
   );
 }
 
+function IconMenu() {
+  return (
+    <svg aria-hidden="true" className="h-5 w-5" viewBox="0 0 20 20">
+      <path
+        d="M3.5 5.5h13M3.5 10h13M3.5 14.5h13"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeWidth="1.8"
+      />
+    </svg>
+  );
+}
+
+function IconBack() {
+  return (
+    <svg aria-hidden="true" className="h-5 w-5" viewBox="0 0 20 20">
+      <path
+        d="M12.5 4.5 7 10l5.5 5.5"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2"
+      />
+    </svg>
+  );
+}
+
+function IconClose() {
+  return (
+    <svg aria-hidden="true" className="h-4 w-4" viewBox="0 0 20 20">
+      <path
+        d="m5.5 5.5 9 9m0-9-9 9"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeWidth="2"
+      />
+    </svg>
+  );
+}
+
+function IconPlus() {
+  return (
+    <svg aria-hidden="true" className="h-7 w-7" viewBox="0 0 20 20">
+      <path
+        d="M10 4v12M4 10h12"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeWidth="2.2"
+      />
+    </svg>
+  );
+}
+
+function IconPin() {
+  return (
+    <svg aria-hidden="true" className="h-4 w-4" viewBox="0 0 20 20">
+      <path
+        d="m7.3 3.5 9.2 9.2-3.5.8-2.9 2.9-1.9-4.6-4.6-1.9 2.9-2.9.8-3.5Z"
+        fill="none"
+        stroke="currentColor"
+        strokeLinejoin="round"
+        strokeWidth="1.5"
+      />
+    </svg>
+  );
+}
+
+function IconPinned() {
+  return (
+    <svg aria-hidden="true" className="h-4 w-4" viewBox="0 0 20 20">
+      <path
+        d="m7.3 3.5 9.2 9.2-3.5.8-2.9 2.9-1.9-4.6-4.6-1.9 2.9-2.9.8-3.5Z"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
+
 function ActionButton({
   children,
   danger = false,
@@ -1895,7 +2138,7 @@ function ActionButton({
 }: {
   children: React.ReactNode;
   danger?: boolean;
-  onClick: () => void;
+  onClick: (event: MouseEvent<HTMLButtonElement>) => void;
 }) {
   return (
     <button
@@ -1926,18 +2169,22 @@ function CreateModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#202124]/30 p-0 sm:items-center sm:p-6">
-      <div className="w-full max-w-lg translate-y-0 rounded-t-2xl bg-white p-5 shadow-[0_20px_70px_rgba(32,33,36,0.25)] transition sm:rounded-lg sm:p-6">
-        <div className="flex justify-end">
-          <button
-            aria-label="Close modal"
-            className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-md text-lg transition hover:bg-[#f1f3f4] active:scale-95"
-            onClick={onClose}
-            type="button"
-          >
-            x
-          </button>
-        </div>
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-[#202124]/30 p-0 sm:items-center sm:p-6"
+      onClick={onClose}
+    >
+      <div
+        className="relative w-full max-w-lg translate-y-0 rounded-t-2xl bg-white p-5 pt-6 shadow-[0_20px_70px_rgba(32,33,36,0.25)] transition sm:rounded-lg sm:p-6"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <button
+          aria-label="Close modal"
+          className="absolute right-4 top-4 flex h-9 w-9 cursor-pointer items-center justify-center rounded-md text-[#5f6368] transition hover:bg-[#f1f3f4] active:scale-95"
+          onClick={onClose}
+          type="button"
+        >
+          <IconClose />
+        </button>
         {children}
       </div>
     </div>
@@ -2085,11 +2332,13 @@ function PendingAttachmentPicker({
 }
 
 function ProfileMenu({
+  onClose,
   onLogout,
   onToggle,
   open,
   user,
 }: {
+  onClose: () => void;
   onLogout: () => void;
   onToggle: () => void;
   open: boolean;
@@ -2100,10 +2349,18 @@ function ProfileMenu({
 
   return (
     <div className="relative">
+      {open ? (
+        <button
+          aria-label="Close account menu"
+          className="fixed inset-0 z-30 cursor-default bg-transparent"
+          onClick={onClose}
+          type="button"
+        />
+      ) : null}
       <button
         aria-expanded={open}
         aria-label="Account settings"
-        className="flex h-11 cursor-pointer items-center gap-2 rounded-full border border-[#dfe3e7] bg-white px-2 pr-3 text-sm font-semibold text-[#3c4043] shadow-[0_1px_2px_rgba(60,64,67,0.08)] transition hover:bg-[#f8f9fa] hover:shadow-[0_2px_8px_rgba(60,64,67,0.14)] active:scale-[0.98]"
+        className="relative z-40 flex h-11 cursor-pointer items-center gap-2 rounded-full border border-[#dfe3e7] bg-white px-2 pr-3 text-sm font-semibold text-[#3c4043] shadow-[0_1px_2px_rgba(60,64,67,0.08)] transition hover:bg-[#f8f9fa] hover:shadow-[0_2px_8px_rgba(60,64,67,0.14)] active:scale-[0.98]"
         onClick={onToggle}
         type="button"
       >
@@ -2186,11 +2443,11 @@ function ShareDialog({
           </div>
           <button
             aria-label="Close sharing"
-            className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-md text-lg transition hover:bg-[#f1f3f4] active:scale-95"
+            className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-md text-[#5f6368] transition hover:bg-[#f1f3f4] active:scale-95"
             onClick={onClose}
             type="button"
           >
-            x
+            <IconClose />
           </button>
         </div>
 
