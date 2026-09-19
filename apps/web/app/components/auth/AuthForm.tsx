@@ -25,15 +25,6 @@ type AuthApiResponse = {
   signedIn?: boolean;
 };
 
-class AuthRequestError extends Error {
-  constructor(
-    message: string,
-    readonly cooldownSeconds?: number,
-  ) {
-    super(message);
-  }
-}
-
 async function submitAuthRequest(payload: {
   name?: string;
   email?: string;
@@ -55,43 +46,6 @@ async function submitAuthRequest(payload: {
 
   if (!response.ok) {
     throw new Error(data.message ?? "Something went wrong.");
-  }
-
-  return data;
-}
-
-async function resendVerificationEmail(email: string) {
-  const response = await fetch("/api/auth/resend-verification", {
-    body: JSON.stringify({ email }),
-    headers: {
-      "Content-Type": "application/json",
-    },
-    method: "POST",
-  });
-  const data = (await response.json()) as AuthApiResponse;
-
-  if (!response.ok) {
-    throw new AuthRequestError(
-      data.message ?? "Unable to resend verification.",
-      data.cooldownSeconds,
-    );
-  }
-
-  return data;
-}
-
-async function verifyEmailCode(payload: { code: string; email: string }) {
-  const response = await fetch("/api/auth/verify-email", {
-    body: JSON.stringify(payload),
-    headers: {
-      "Content-Type": "application/json",
-    },
-    method: "POST",
-  });
-  const data = (await response.json()) as AuthApiResponse;
-
-  if (!response.ok) {
-    throw new Error(data.message ?? "Unable to verify this account.");
   }
 
   return data;
@@ -161,11 +115,6 @@ export default function AuthForm({
   const [form, setForm] = useState(emptyAuthForm);
   const [error, setError] = useState("");
   const [isSubmitting, setSubmitting] = useState(false);
-  const [pendingVerificationEmail, setPendingVerificationEmail] = useState("");
-  const [verificationCode, setVerificationCode] = useState("");
-  const [resendCooldown, setResendCooldown] = useState(0);
-  const [isResending, setResending] = useState(false);
-  const [isVerifying, setVerifying] = useState(false);
   const [pendingPasswordResetEmail, setPendingPasswordResetEmail] =
     useState("");
   const [passwordResetCode, setPasswordResetCode] = useState("");
@@ -177,18 +126,6 @@ export default function AuthForm({
   const [successMessage, setSuccessMessage] = useState("");
   const [turnstileToken, setTurnstileToken] = useState("");
   const [turnstileResetKey, setTurnstileResetKey] = useState(0);
-
-  useEffect(() => {
-    if (resendCooldown <= 0) {
-      return;
-    }
-
-    const timer = window.setInterval(() => {
-      setResendCooldown((current) => Math.max(current - 1, 0));
-    }, 1000);
-
-    return () => window.clearInterval(timer);
-  }, [resendCooldown]);
 
   useEffect(() => {
     if (passwordResetCooldown <= 0) {
@@ -249,12 +186,11 @@ export default function AuthForm({
       setForm(emptyAuthForm);
 
       if (data.signedIn) {
-        setPendingVerificationEmail("");
         router.push("/dashboard");
       } else if (mode === "signup") {
-        setPendingVerificationEmail(submittedEmail);
-        setVerificationCode("");
-        setResendCooldown(60);
+        router.push(
+          `/verify-email?email=${encodeURIComponent(submittedEmail.trim())}`,
+        );
       }
     } catch (submitError) {
       const message =
@@ -262,91 +198,11 @@ export default function AuthForm({
           ? submitError.message
           : "Unable to submit the form.";
 
-      if (mode === "login" && message.toLowerCase().includes("verify")) {
-        setPendingVerificationEmail(form.email);
-        setVerificationCode("");
-      }
-
-      if (
-        mode === "signup" &&
-        message.toLowerCase().includes("resend")
-      ) {
-        setPendingVerificationEmail(form.email);
-        setVerificationCode("");
-      }
-
-      setError(
-        message,
-      );
+      setError(message);
     } finally {
       setSubmitting(false);
       setTurnstileToken("");
       setTurnstileResetKey((current) => current + 1);
-    }
-  }
-
-  async function handleResendVerification() {
-    if (!pendingVerificationEmail || resendCooldown > 0) {
-      return;
-    }
-
-    setResending(true);
-    setError("");
-    setSuccessMessage("");
-
-    try {
-      const data = await resendVerificationEmail(pendingVerificationEmail);
-      setSuccessMessage(data.message ?? "Verification email sent.");
-      setResendCooldown(data.cooldownSeconds ?? 60);
-    } catch (resendError) {
-      if (
-        resendError instanceof AuthRequestError &&
-        resendError.cooldownSeconds
-      ) {
-        setResendCooldown(resendError.cooldownSeconds);
-      }
-
-      setError(
-        resendError instanceof Error
-          ? resendError.message
-          : "Unable to resend verification.",
-      );
-    } finally {
-      setResending(false);
-    }
-  }
-
-  async function handleVerifyEmail() {
-    if (!pendingVerificationEmail || verificationCode.trim().length !== 6) {
-      return;
-    }
-
-    setVerifying(true);
-    setError("");
-    setSuccessMessage("");
-
-    try {
-      const data = await verifyEmailCode({
-        code: verificationCode.trim(),
-        email: pendingVerificationEmail,
-      });
-      setSuccessMessage(data.message ?? "Email verified. You can sign in now.");
-      setForm({
-        ...emptyAuthForm,
-        email: pendingVerificationEmail,
-      });
-      setPendingVerificationEmail("");
-      setVerificationCode("");
-      setResendCooldown(0);
-      onModeChange("login");
-    } catch (verifyError) {
-      setError(
-        verifyError instanceof Error
-          ? verifyError.message
-          : "Unable to verify this account.",
-      );
-    } finally {
-      setVerifying(false);
     }
   }
 
@@ -448,13 +304,10 @@ export default function AuthForm({
     onModeChange(mode === "signup" ? "login" : "signup");
     setForm(emptyAuthForm);
     setError("");
-    setPendingVerificationEmail("");
-    setVerificationCode("");
     setPendingPasswordResetEmail("");
     setPasswordResetCode("");
     setNewPassword("");
     setPasswordResetCooldown(0);
-    setResendCooldown(0);
     setSuccessMessage("");
     setTurnstileToken("");
     setTurnstileResetKey((current) => current + 1);
@@ -604,81 +457,6 @@ export default function AuthForm({
           <p className="rounded-lg bg-[#edf7ed] px-4 py-3 text-sm text-[#1e6a3b]">
             {successMessage}
           </p>
-        ) : null}
-
-        {pendingVerificationEmail ? (
-          <div className="rounded-[12px] border border-[#d7dce5] bg-[#fafaf8] p-4">
-            <div className="space-y-3">
-              <label className="block text-left">
-                <span className="mb-1.5 block text-left text-[12px] font-medium tracking-[0.01em] text-[#6b6b6b]">
-                  Verification code *
-                </span>
-                <input
-                  className="h-12 w-full rounded-[10px] border border-[#d7dce5] bg-white px-[14px] text-center text-lg font-semibold tracking-[0.3em] text-[#111111] outline-none transition placeholder:tracking-normal placeholder:opacity-70 focus:border-[#378ADD]"
-                  inputMode="numeric"
-                  maxLength={6}
-                  name="verificationCode"
-                  onChange={(event) =>
-                    setVerificationCode(
-                      event.target.value.replace(/\D/g, "").slice(0, 6),
-                    )
-                  }
-                  placeholder="000000"
-                  required
-                  value={verificationCode}
-                />
-              </label>
-              <Button
-                disableElevation
-                disabled={isVerifying || verificationCode.length !== 6}
-                fullWidth
-                onClick={handleVerifyEmail}
-                sx={{
-                  backgroundColor: "#111111",
-                  borderRadius: "10px",
-                  color: "#ffffff",
-                  fontSize: "0.9rem",
-                  fontWeight: 600,
-                  minHeight: "44px",
-                  textTransform: "none",
-                  "&:hover": {
-                    backgroundColor: "#2a2a2a",
-                  },
-                }}
-                type="button"
-                variant="contained"
-              >
-                {isVerifying ? "Verifying..." : "Verify account"}
-              </Button>
-            </div>
-            <Button
-              disabled={isResending || resendCooldown > 0}
-              fullWidth
-              onClick={handleResendVerification}
-              sx={{
-                borderColor: "#d7dce5",
-                borderRadius: "10px",
-                color: "#111111",
-                fontSize: "0.875rem",
-                fontWeight: 600,
-                mt: 1.5,
-                minHeight: "44px",
-                textTransform: "none",
-                "&:hover": {
-                  backgroundColor: "#f7f7f5",
-                  borderColor: "#c5ccd8",
-                },
-              }}
-              type="button"
-              variant="outlined"
-            >
-              {isResending
-                ? "Sending..."
-                : resendCooldown > 0
-                  ? `Resend in ${resendCooldown}s`
-                  : "Resend verification code"}
-            </Button>
-          </div>
         ) : null}
 
         {pendingPasswordResetEmail ? (
