@@ -4,6 +4,7 @@ import Button from "@mui/material/Button";
 import Checkbox from "@mui/material/Checkbox";
 import Divider from "@mui/material/Divider";
 import FormControlLabel from "@mui/material/FormControlLabel";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 import AuthModeToggle from "./AuthModeToggle";
@@ -773,13 +774,13 @@ export default function AuthForm({ mode, onModeChange }: AuthFormProps) {
 
         <p className="text-center text-[12px] leading-5 text-[#8a8a8a]">
           By continuing, you agree to our{" "}
-          <a className="text-[#378ADD]" href="#">
+          <Link className="text-[#378ADD]" href="/terms">
             Terms
-          </a>{" "}
+          </Link>{" "}
           and{" "}
-          <a className="text-[#378ADD]" href="#">
+          <Link className="text-[#378ADD]" href="/privacy">
             Privacy Policy
-          </a>
+          </Link>
           .
         </p>
       </form>

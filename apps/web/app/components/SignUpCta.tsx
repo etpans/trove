@@ -3,7 +3,6 @@
 import Button from "@mui/material/Button";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import PopupForm from "./PopupForm";
 
 type SignUpCtaProps = {
   label: string;
@@ -17,8 +16,6 @@ export default function SignUpCta({
   tone = "primary",
 }: SignUpCtaProps) {
   const router = useRouter();
-  const [dialogKey, setDialogKey] = useState(0);
-  const [isOpen, setOpen] = useState(false);
   const [isCheckingSession, setCheckingSession] = useState(false);
   const [isAuthenticated, setAuthenticated] = useState(false);
 
@@ -84,46 +81,36 @@ export default function SignUpCta({
       setCheckingSession(false);
     }
 
-    setDialogKey((currentKey) => currentKey + 1);
-    setOpen(true);
+    router.push(`/${mode}`);
   }
 
   return (
-    <>
-      <Button
-        disableElevation
-        disabled={isCheckingSession}
-        onClick={handleOpen}
-        sx={{
-          borderColor: isTextButton ? "transparent" : "#378ADD",
-          borderRadius: "8px",
-          color: isTextButton ? "#6b6b6b" : "#ffffff",
-          fontSize: "0.875rem",
-          fontWeight: 600,
-          minWidth: isTextButton ? "auto" : undefined,
-          px: isTextButton ? 1.5 : 2.5,
-          py: isTextButton ? 1 : 1.25,
-          textTransform: "none",
-          "&:hover": {
-            backgroundColor: isTextButton ? "transparent" : "#2f7aca",
-            color: isTextButton ? "#111111" : "#ffffff",
-          },
-        }}
-        variant={isTextButton ? "text" : "contained"}
-      >
-        {isCheckingSession
-          ? "Checking..."
-          : isAuthenticated
-            ? "Continue to dashboard"
-            : label}
-      </Button>
-
-      <PopupForm
-        key={`${mode}-${dialogKey}`}
-        initialMode={mode}
-        isOpen={isOpen}
-        onClose={() => setOpen(false)}
-      />
-    </>
+    <Button
+      disableElevation
+      disabled={isCheckingSession}
+      onClick={handleOpen}
+      sx={{
+        borderColor: isTextButton ? "transparent" : "#378ADD",
+        borderRadius: "8px",
+        color: isTextButton ? "#6b6b6b" : "#ffffff",
+        fontSize: "0.875rem",
+        fontWeight: 600,
+        minWidth: isTextButton ? "auto" : undefined,
+        px: isTextButton ? 1.5 : 2.5,
+        py: isTextButton ? 1 : 1.25,
+        textTransform: "none",
+        "&:hover": {
+          backgroundColor: isTextButton ? "transparent" : "#2f7aca",
+          color: isTextButton ? "#111111" : "#ffffff",
+        },
+      }}
+      variant={isTextButton ? "text" : "contained"}
+    >
+      {isCheckingSession
+        ? "Checking..."
+        : isAuthenticated
+          ? "Continue to dashboard"
+          : label}
+    </Button>
   );
 }
