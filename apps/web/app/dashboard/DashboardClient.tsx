@@ -19,7 +19,14 @@ type SessionState = {
 };
 
 type Screen = "home" | "class" | "student";
-type CreateMode = "class" | "student" | "note" | "classActions" | null;
+type CreateMode =
+  | "class"
+  | "student"
+  | "note"
+  | "classActions"
+  | "editClass"
+  | "editStudent"
+  | null;
 
 type ClassRecord = {
   color?: string;
@@ -40,9 +47,18 @@ type StudentRecord = {
 
 type NoteAttachmentRecord = {
   caption?: string | null;
+  createdAt?: string;
   fileType: string;
   fileUrl: string;
   id: string;
+};
+
+type ShareLinkRecord = {
+  createdAt?: string;
+  expiresAt?: string | null;
+  id: string;
+  isActive?: boolean;
+  token: string;
 };
 
 type NoteRecord = {
@@ -50,6 +66,7 @@ type NoteRecord = {
   content: string | null;
   createdAt?: string;
   id: number;
+  shareLinks?: ShareLinkRecord[];
   student?: StudentRecord;
   studentId: number;
   title: string;
@@ -136,6 +153,22 @@ async function fetchMultipartJson<T>(url: string, formData: FormData) {
   return data as T;
 }
 
+async function patchMultipartJson<T>(url: string, formData: FormData) {
+  const response = await fetch(url, {
+    body: formData,
+    method: "PATCH",
+  });
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(
+      typeof data.message === "string" ? data.message : "Request failed.",
+    );
+  }
+
+  return data as T;
+}
+
 function DashboardContent() {
   const queryClient = useQueryClient();
   const [screen, setScreen] = useState<Screen>("home");
@@ -151,6 +184,8 @@ function DashboardContent() {
     useState<StudentForm>(emptyStudentForm);
   const [noteForm, setNoteForm] = useState<NoteForm>(emptyNoteForm);
   const [pinnedNoteIds, setPinnedNoteIds] = useState<number[]>([]);
+  const [selectedNoteId, setSelectedNoteId] = useState<number | null>(null);
+  const [copiedShareId, setCopiedShareId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -188,9 +223,12 @@ function DashboardContent() {
   const selectedStudent = students.find((student) => {
     return student.id === selectedStudentId;
   });
+  const selectedNote = notes.find((note) => note.id === selectedNoteId);
   const classStudents = useMemo(() => {
     return selectedClassId
-      ? students.filter((student) => student.classId === selectedClassId)
+      ? students
+          .filter((student) => student.classId === selectedClassId)
+          .sort(sortStudentsByName)
       : [];
   }, [selectedClassId, students]);
   const classStudentIds = useMemo(() => {
@@ -264,6 +302,24 @@ function DashboardContent() {
     setScreen("student");
   }
 
+  function openEditClass(classItem: ClassRecord) {
+    setClassForm({
+      name: classItem.name,
+      session: normalizeDateInput(classItem.session),
+    });
+    setFormError(null);
+    setCreateMode("editClass");
+  }
+
+  function openEditStudent(student: StudentRecord) {
+    setStudentForm({
+      name: student.name,
+      rollNumber: student.rollNumber || "",
+    });
+    setFormError(null);
+    setCreateMode("editStudent");
+  }
+
   function openCreateNote(studentId?: number) {
     setNoteForm({
       ...emptyNoteForm,
@@ -271,6 +327,16 @@ function DashboardContent() {
     });
     setFormError(null);
     setCreateMode("note");
+  }
+
+  function openNote(note: NoteRecord) {
+    setSelectedNoteId(note.id);
+    setNoteForm({
+      content: note.content || "",
+      studentId: String(note.studentId),
+      title: note.title,
+    });
+    setFormError(null);
   }
 
   async function handleCreateClass(event: FormEvent<HTMLFormElement>) {
@@ -325,6 +391,60 @@ function DashboardContent() {
     }
   }
 
+  async function handleUpdateClass(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!selectedClass) {
+      return;
+    }
+
+    setSubmitting(true);
+    setFormError(null);
+
+    try {
+      await fetchJson<ClassRecord>(`/api/classes/${selectedClass.id}`, {
+        body: JSON.stringify({
+          name: classForm.name,
+          session: classForm.session,
+        }),
+        method: "PATCH",
+      });
+      setCreateMode(null);
+      await invalidateDashboard();
+    } catch (error) {
+      setFormError(getErrorMessage(error));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleUpdateStudent(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!selectedStudent) {
+      return;
+    }
+
+    setSubmitting(true);
+    setFormError(null);
+
+    try {
+      await fetchJson<StudentRecord>(`/api/students/${selectedStudent.id}`, {
+        body: JSON.stringify({
+          name: studentForm.name,
+          rollNumber: studentForm.rollNumber || undefined,
+        }),
+        method: "PATCH",
+      });
+      setCreateMode(null);
+      await invalidateDashboard();
+    } catch (error) {
+      setFormError(getErrorMessage(error));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   async function handleCreateNote(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const studentId = Number(noteForm.studentId || selectedStudentId);
@@ -356,7 +476,149 @@ function DashboardContent() {
     }
   }
 
+  async function handleUpdateNote(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!selectedNote) {
+      return;
+    }
+
+    const studentId = Number(noteForm.studentId || selectedNote.studentId);
+    if (!studentId) {
+      setFormError("Choose a student for this note.");
+      return;
+    }
+
+    setSubmitting(true);
+    setFormError(null);
+
+    try {
+      await fetchJson<NoteRecord>(`/api/notes/${selectedNote.id}`, {
+        body: JSON.stringify({
+          content: noteForm.content,
+          studentId,
+          title: noteForm.title,
+        }),
+        method: "PATCH",
+      });
+      await invalidateDashboard();
+    } catch (error) {
+      setFormError(getErrorMessage(error));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleDeleteClass(classItem: ClassRecord) {
+    const confirmed = window.confirm(
+      `Delete ${classItem.name}? This also removes its students and notes if the API allows it.`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setSubmitting(true);
+    setFormError(null);
+
+    try {
+      await fetchJson(`/api/classes/${classItem.id}`, {
+        method: "DELETE",
+      });
+      if (selectedClassId === classItem.id) {
+        setSelectedClassId(null);
+        setSelectedStudentId(null);
+        setScreen("home");
+      }
+      await invalidateDashboard();
+    } catch (error) {
+      setFormError(getErrorMessage(error));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleDeleteStudent(student: StudentRecord) {
+    const confirmed = window.confirm(
+      `Delete ${student.name}? This also removes this student's notes if the API allows it.`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setSubmitting(true);
+    setFormError(null);
+
+    try {
+      await fetchJson(`/api/students/${student.id}`, {
+        method: "DELETE",
+      });
+      if (selectedStudentId === student.id) {
+        setSelectedStudentId(null);
+        setScreen("class");
+      }
+      await invalidateDashboard();
+    } catch (error) {
+      setFormError(getErrorMessage(error));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleDeleteNote(note: NoteRecord) {
+    const confirmed = window.confirm(`Delete "${note.title}"?`);
+
+    if (!confirmed) {
+      return;
+    }
+
+    setSubmitting(true);
+    setFormError(null);
+
+    try {
+      await fetchJson(`/api/notes/${note.id}`, {
+        method: "DELETE",
+      });
+      setSelectedNoteId(null);
+      await invalidateDashboard();
+    } catch (error) {
+      setFormError(getErrorMessage(error));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   async function handleAttachment(noteId: number, file?: File) {
+    if (!file) {
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", file);
+    const caption = window.prompt("Caption for this attachment", "");
+    if (caption?.trim()) {
+      formData.append("caption", caption.trim());
+    }
+
+    setSubmitting(true);
+    setFormError(null);
+
+    try {
+      await fetchMultipartJson(`/api/notes/${noteId}/attachments`, formData);
+      await invalidateDashboard();
+    } catch (error) {
+      setFormError(getErrorMessage(error));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleReplaceAttachment(
+    noteId: number,
+    attachmentId: string,
+    file?: File,
+  ) {
     if (!file) {
       return;
     }
@@ -368,7 +630,89 @@ function DashboardContent() {
     setFormError(null);
 
     try {
-      await fetchMultipartJson(`/api/notes/${noteId}/attachments`, formData);
+      await patchMultipartJson(
+        `/api/notes/${noteId}/attachments/${attachmentId}`,
+        formData,
+      );
+      await invalidateDashboard();
+    } catch (error) {
+      setFormError(getErrorMessage(error));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleDeleteAttachment(noteId: number, attachmentId: string) {
+    const confirmed = window.confirm("Remove this attachment?");
+
+    if (!confirmed) {
+      return;
+    }
+
+    setSubmitting(true);
+    setFormError(null);
+
+    try {
+      await fetchJson(`/api/notes/${noteId}/attachments/${attachmentId}`, {
+        method: "DELETE",
+      });
+      await invalidateDashboard();
+    } catch (error) {
+      setFormError(getErrorMessage(error));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleCreateShare(noteId: number) {
+    setSubmitting(true);
+    setFormError(null);
+
+    try {
+      const shareLink = await fetchJson<ShareLinkRecord>(
+        `/api/notes/${noteId}/share`,
+        {
+          method: "POST",
+        },
+      );
+      await copyShareLink(shareLink);
+      await invalidateDashboard();
+    } catch (error) {
+      setFormError(getErrorMessage(error));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleCopyShare(shareLink: ShareLinkRecord) {
+    try {
+      await copyShareLink(shareLink);
+    } catch (error) {
+      setFormError(getErrorMessage(error));
+    }
+  }
+
+  async function copyShareLink(shareLink: ShareLinkRecord) {
+    const shareUrl = getShareUrl(shareLink.token);
+    await navigator.clipboard.writeText(shareUrl);
+    setCopiedShareId(shareLink.id);
+    window.setTimeout(() => setCopiedShareId(null), 1600);
+  }
+
+  async function handleRevokeShare(shareLink: ShareLinkRecord) {
+    const confirmed = window.confirm("Revoke this share link?");
+
+    if (!confirmed) {
+      return;
+    }
+
+    setSubmitting(true);
+    setFormError(null);
+
+    try {
+      await fetchJson(`/api/notes/share/${shareLink.id}`, {
+        method: "DELETE",
+      });
       await invalidateDashboard();
     } catch (error) {
       setFormError(getErrorMessage(error));
@@ -435,27 +779,51 @@ function DashboardContent() {
 
         {screen === "home" ? (
           <>
-            <BoardTitle subtitle="Your classroom boards" title="Classes" />
+            <BoardTitle
+              subtitle={`${visibleClasses.length} classroom board${
+                visibleClasses.length === 1 ? "" : "s"
+              }`}
+              title="Classes"
+            />
             <KeepGrid
-              emptyText="Create your first class."
+              emptyText={
+                search.trim()
+                  ? "No classes match your search."
+                  : "Create your first class."
+              }
               items={visibleClasses}
               renderItem={(classItem, index) => (
-                <button
+                <article
                   className="min-h-40 rounded-lg p-5 text-left transition hover:-translate-y-0.5 hover:shadow-[0_8px_24px_rgba(60,64,67,0.16)]"
                   key={classItem.id}
-                  onClick={() => openClass(classItem.id)}
                   style={{
                     backgroundColor: getCardColor(index, classItem.color),
                   }}
-                  type="button"
                 >
-                  <span className="block text-2xl font-semibold leading-tight">
-                    {classItem.name}
-                  </span>
-                  <span className="mt-5 block text-sm text-[#5f6368]">
-                    {formatDate(classItem.session)}
-                  </span>
-                </button>
+                  <button
+                    className="block w-full text-left"
+                    onClick={() => openClass(classItem.id)}
+                    type="button"
+                  >
+                    <span className="block text-2xl font-semibold leading-tight">
+                      {classItem.name}
+                    </span>
+                    <span className="mt-5 block text-sm text-[#5f6368]">
+                      {formatDate(classItem.session)}
+                    </span>
+                  </button>
+                  <div className="mt-6 flex gap-2">
+                    <ActionButton onClick={() => openEditClass(classItem)}>
+                      Edit
+                    </ActionButton>
+                    <ActionButton
+                      danger
+                      onClick={() => handleDeleteClass(classItem)}
+                    >
+                      Delete
+                    </ActionButton>
+                  </div>
+                </article>
               )}
             />
           </>
@@ -464,12 +832,40 @@ function DashboardContent() {
         {screen === "class" ? (
           <>
             <BoardTitle
+              actions={
+                selectedClass ? (
+                  <>
+                    <ActionButton onClick={() => openEditClass(selectedClass)}>
+                      Edit class
+                    </ActionButton>
+                    <ActionButton
+                      danger
+                      onClick={() => handleDeleteClass(selectedClass)}
+                    >
+                      Delete class
+                    </ActionButton>
+                  </>
+                ) : null
+              }
               onBack={() => setScreen("home")}
-              subtitle="Latest notes"
+              subtitle={`${classStudents.length} student${
+                classStudents.length === 1 ? "" : "s"
+              } · ${classNotes.length} visible note${
+                classNotes.length === 1 ? "" : "s"
+              }`}
               title={selectedClass?.name || "Class"}
             />
+            <StudentStrip
+              onEditStudent={openEditStudent}
+              onOpenStudent={openStudent}
+              students={classStudents}
+            />
             <KeepGrid
-              emptyText="Create a student, then add the first note."
+              emptyText={
+                search.trim()
+                  ? "No notes match your search."
+                  : "Create a student, then add the first note."
+              }
               items={classNotes}
               renderItem={(note, index) => (
                 <NoteCard
@@ -477,6 +873,8 @@ function DashboardContent() {
                   color={getCardColor(index)}
                   note={note}
                   onAttach={handleAttachment}
+                  onOpen={() => openNote(note)}
+                  onShare={() => handleCreateShare(note.id)}
                   studentName={
                     students.find((student) => student.id === note.studentId)
                       ?.name
@@ -490,12 +888,33 @@ function DashboardContent() {
         {screen === "student" ? (
           <>
             <BoardTitle
+              actions={
+                selectedStudent ? (
+                  <>
+                    <ActionButton onClick={() => openEditStudent(selectedStudent)}>
+                      Edit student
+                    </ActionButton>
+                    <ActionButton
+                      danger
+                      onClick={() => handleDeleteStudent(selectedStudent)}
+                    >
+                      Delete student
+                    </ActionButton>
+                  </>
+                ) : null
+              }
               onBack={() => setScreen("class")}
-              subtitle="Pinned notes stay first"
+              subtitle={`${studentNotes.length} visible note${
+                studentNotes.length === 1 ? "" : "s"
+              } · pinned notes stay first`}
               title={selectedStudent?.name || "Student"}
             />
             <KeepGrid
-              emptyText="Add the first note for this student."
+              emptyText={
+                search.trim()
+                  ? "No notes match your search."
+                  : "Add the first note for this student."
+              }
               items={studentNotes}
               renderItem={(note, index) => (
                 <NoteCard
@@ -504,7 +923,9 @@ function DashboardContent() {
                   isPinned={pinnedNoteIds.includes(note.id)}
                   note={note}
                   onAttach={handleAttachment}
+                  onOpen={() => openNote(note)}
                   onPin={() => togglePinned(note.id)}
+                  onShare={() => handleCreateShare(note.id)}
                 />
               )}
             />
@@ -595,6 +1016,39 @@ function DashboardContent() {
           </CreateForm>
         ) : null}
 
+        {createMode === "editClass" ? (
+          <CreateForm
+            error={formError}
+            onSubmit={handleUpdateClass}
+            submitting={submitting}
+            submitText="Save class"
+            title="Edit class"
+          >
+            <input
+              className={inputClass}
+              onChange={(event) =>
+                setClassForm((current) => ({
+                  ...current,
+                  name: event.target.value,
+                }))
+              }
+              placeholder="Class name"
+              value={classForm.name}
+            />
+            <input
+              className={inputClass}
+              onChange={(event) =>
+                setClassForm((current) => ({
+                  ...current,
+                  session: event.target.value,
+                }))
+              }
+              type="date"
+              value={classForm.session}
+            />
+          </CreateForm>
+        ) : null}
+
         {createMode === "student" ? (
           <CreateForm
             error={formError}
@@ -602,6 +1056,39 @@ function DashboardContent() {
             submitting={submitting}
             submitText="Create student"
             title="New student"
+          >
+            <input
+              className={inputClass}
+              onChange={(event) =>
+                setStudentForm((current) => ({
+                  ...current,
+                  name: event.target.value,
+                }))
+              }
+              placeholder="Student name"
+              value={studentForm.name}
+            />
+            <input
+              className={inputClass}
+              onChange={(event) =>
+                setStudentForm((current) => ({
+                  ...current,
+                  rollNumber: event.target.value,
+                }))
+              }
+              placeholder="Roll number"
+              value={studentForm.rollNumber}
+            />
+          </CreateForm>
+        ) : null}
+
+        {createMode === "editStudent" ? (
+          <CreateForm
+            error={formError}
+            onSubmit={handleUpdateStudent}
+            submitting={submitting}
+            submitText="Save student"
+            title="Edit student"
           >
             <input
               className={inputClass}
@@ -698,37 +1185,61 @@ function DashboardContent() {
           </button>
         ) : null}
       </CreateModal>
+
+      <NoteModal
+        copiedShareId={copiedShareId}
+        error={formError}
+        note={selectedNote}
+        noteForm={noteForm}
+        onAttach={handleAttachment}
+        onClose={() => setSelectedNoteId(null)}
+        onCopyShare={handleCopyShare}
+        onDeleteAttachment={handleDeleteAttachment}
+        onDeleteNote={handleDeleteNote}
+        onReplaceAttachment={handleReplaceAttachment}
+        onRevokeShare={handleRevokeShare}
+        onShare={handleCreateShare}
+        onSubmit={handleUpdateNote}
+        setNoteForm={setNoteForm}
+        students={classStudents}
+        submitting={submitting}
+      />
     </main>
   );
 }
 
 function BoardTitle({
+  actions,
   onBack,
   subtitle,
   title,
 }: {
+  actions?: React.ReactNode;
   onBack?: () => void;
   subtitle: string;
   title: string;
 }) {
   return (
-    <div className="mb-5 flex items-center gap-3">
-      {onBack ? (
-        <button
-          aria-label="Back"
-          className="flex h-10 w-10 items-center justify-center rounded-md text-3xl text-[#3c4043] transition hover:bg-[#f1f3f4]"
-          onClick={onBack}
-          type="button"
-        >
-          {"<"}
-        </button>
-      ) : null}
-      <div>
-        <h1 className="text-3xl font-semibold tracking-normal sm:text-4xl">
-          {title}
-        </h1>
-        <p className="mt-1 text-sm text-[#6f7478]">{subtitle}</p>
+    <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <div className="flex items-center gap-3">
+        {onBack ? (
+          <button
+            aria-label="Back"
+            className="flex h-10 w-10 items-center justify-center rounded-md text-3xl text-[#3c4043] transition hover:bg-[#f1f3f4]"
+            onClick={onBack}
+            type="button"
+          >
+            {"<"}
+          </button>
+        ) : null}
+        <div>
+          <h1 className="text-3xl font-semibold tracking-normal sm:text-4xl">
+            {title}
+          </h1>
+          <p className="mt-1 text-sm text-[#6f7478]">{subtitle}</p>
+        </div>
       </div>
+      {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
     </div>
   );
 }
@@ -757,22 +1268,68 @@ function KeepGrid<T>({
   );
 }
 
+function StudentStrip({
+  onEditStudent,
+  onOpenStudent,
+  students,
+}: {
+  onEditStudent: (student: StudentRecord) => void;
+  onOpenStudent: (studentId: number) => void;
+  students: StudentRecord[];
+}) {
+  if (!students.length) {
+    return null;
+  }
+
+  return (
+    <div className="mb-5 flex gap-2 overflow-x-auto pb-1">
+      {students.map((student) => (
+        <div
+          className="flex shrink-0 items-center overflow-hidden rounded-full border border-[#dfe3e7] bg-white"
+          key={student.id}
+        >
+          <button
+            className="px-3 py-2 text-sm font-semibold text-[#303134] transition hover:bg-[#f8f9fa]"
+            onClick={() => onOpenStudent(student.id)}
+            type="button"
+          >
+            {student.name}
+          </button>
+          <button
+            aria-label={`Edit ${student.name}`}
+            className="border-l border-[#dfe3e7] px-2 py-2 text-xs font-semibold text-[#5f6368] transition hover:bg-[#f8f9fa]"
+            onClick={() => onEditStudent(student)}
+            type="button"
+          >
+            Edit
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function NoteCard({
   color,
   isPinned = false,
   note,
   onAttach,
+  onOpen,
   onPin,
+  onShare,
   studentName,
 }: {
   color: string;
   isPinned?: boolean;
   note: NoteRecord;
   onAttach: (noteId: number, file?: File) => void;
+  onOpen: () => void;
   onPin?: () => void;
+  onShare: () => void;
   studentName?: string;
 }) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const activeShare = getActiveShareLink(note);
 
   return (
     <article
@@ -794,12 +1351,19 @@ function NoteCard({
           </button>
         ) : null}
       </div>
-      <p className="mt-3 whitespace-pre-line text-sm leading-6 text-[#3c4043]">
-        {note.content || "No body content"}
-      </p>
+      <button className="mt-3 block w-full text-left" onClick={onOpen} type="button">
+        <p className="line-clamp-5 whitespace-pre-line text-sm leading-6 text-[#3c4043]">
+          {note.content || "No body content"}
+        </p>
+      </button>
       {studentName ? (
         <p className="mt-4 text-xs font-semibold text-[#5f6368]">
           {studentName}
+        </p>
+      ) : null}
+      {activeShare ? (
+        <p className="mt-3 rounded-full bg-white/40 px-3 py-1 text-xs font-semibold text-[#303134]">
+          Shared
         </p>
       ) : null}
       {note.attachments?.length ? (
@@ -819,13 +1383,29 @@ function NoteCard({
       ) : null}
       <div className="mt-5 flex items-center justify-between gap-3">
         <span className="text-xs text-[#5f6368]">{formatDate(note.createdAt)}</span>
-        <button
-          className="rounded-full bg-white/45 px-3 py-1.5 text-xs font-semibold text-[#303134] transition hover:bg-white/70"
-          onClick={() => fileInputRef.current?.click()}
-          type="button"
-        >
-          + media
-        </button>
+        <div className="flex gap-2">
+          <button
+            className="rounded-full bg-white/45 px-3 py-1.5 text-xs font-semibold text-[#303134] transition hover:bg-white/70"
+            onClick={onOpen}
+            type="button"
+          >
+            Open
+          </button>
+          <button
+            className="rounded-full bg-white/45 px-3 py-1.5 text-xs font-semibold text-[#303134] transition hover:bg-white/70"
+            onClick={onShare}
+            type="button"
+          >
+            Share
+          </button>
+          <button
+            className="rounded-full bg-white/45 px-3 py-1.5 text-xs font-semibold text-[#303134] transition hover:bg-white/70"
+            onClick={() => fileInputRef.current?.click()}
+            type="button"
+          >
+            + media
+          </button>
+        </div>
         <input
           className="hidden"
           onChange={(event) => onAttach(note.id, event.target.files?.[0])}
@@ -894,6 +1474,274 @@ function StudentDrawer({
         </div>
       </aside>
     </div>
+  );
+}
+
+function NoteModal({
+  copiedShareId,
+  error,
+  note,
+  noteForm,
+  onAttach,
+  onClose,
+  onCopyShare,
+  onDeleteAttachment,
+  onDeleteNote,
+  onReplaceAttachment,
+  onRevokeShare,
+  onShare,
+  onSubmit,
+  setNoteForm,
+  students,
+  submitting,
+}: {
+  copiedShareId: string | null;
+  error: string | null;
+  note?: NoteRecord;
+  noteForm: NoteForm;
+  onAttach: (noteId: number, file?: File) => void;
+  onClose: () => void;
+  onCopyShare: (shareLink: ShareLinkRecord) => void;
+  onDeleteAttachment: (noteId: number, attachmentId: string) => void;
+  onDeleteNote: (note: NoteRecord) => void;
+  onReplaceAttachment: (
+    noteId: number,
+    attachmentId: string,
+    file?: File,
+  ) => void;
+  onRevokeShare: (shareLink: ShareLinkRecord) => void;
+  onShare: (noteId: number) => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  setNoteForm: React.Dispatch<React.SetStateAction<NoteForm>>;
+  students: StudentRecord[];
+  submitting: boolean;
+}) {
+  const uploadInputRef = useRef<HTMLInputElement | null>(null);
+  const activeShare = note ? getActiveShareLink(note) : undefined;
+
+  if (!note) {
+    return null;
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#202124]/30 p-0 sm:items-center sm:p-6">
+      <section className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-t-2xl bg-white p-6 shadow-[0_20px_70px_rgba(32,33,36,0.25)] sm:rounded-lg">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-sm font-semibold text-[#6f7478]">
+            {note.student?.name || "Student note"}
+          </p>
+          <button
+            aria-label="Close note"
+            className="flex h-9 w-9 items-center justify-center rounded-md text-lg transition hover:bg-[#f1f3f4]"
+            onClick={onClose}
+            type="button"
+          >
+            x
+          </button>
+        </div>
+
+        <form className="mt-4 grid gap-3" onSubmit={onSubmit}>
+          {error ? <ErrorBanner message={error} /> : null}
+          <input
+            className={`${inputClass} text-xl font-semibold`}
+            onChange={(event) =>
+              setNoteForm((current) => ({
+                ...current,
+                title: event.target.value,
+              }))
+            }
+            placeholder="Title"
+            value={noteForm.title}
+          />
+          <select
+            className={inputClass}
+            onChange={(event) =>
+              setNoteForm((current) => ({
+                ...current,
+                studentId: event.target.value,
+              }))
+            }
+            value={noteForm.studentId}
+          >
+            {students.map((student) => (
+              <option key={student.id} value={student.id}>
+                {student.name}
+              </option>
+            ))}
+          </select>
+          <textarea
+            className={`${inputClass} min-h-48 py-3`}
+            onChange={(event) =>
+              setNoteForm((current) => ({
+                ...current,
+                content: event.target.value,
+              }))
+            }
+            placeholder="Note"
+            value={noteForm.content}
+          />
+          <div className="flex flex-wrap gap-2">
+            <button
+              className="h-11 rounded-md bg-[#202124] px-4 text-sm font-semibold text-white transition hover:bg-black disabled:opacity-60"
+              disabled={submitting}
+              type="submit"
+            >
+              {submitting ? "Saving..." : "Save note"}
+            </button>
+            <ActionButton danger onClick={() => onDeleteNote(note)}>
+              Delete note
+            </ActionButton>
+          </div>
+        </form>
+
+        <section className="mt-8 border-t border-[#eceff1] pt-5">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-lg font-semibold">Attachments</h2>
+            <ActionButton onClick={() => uploadInputRef.current?.click()}>
+              Add media
+            </ActionButton>
+            <input
+              className="hidden"
+              onChange={(event) => onAttach(note.id, event.target.files?.[0])}
+              ref={uploadInputRef}
+              type="file"
+            />
+          </div>
+          {note.attachments?.length ? (
+            <div className="mt-3 grid gap-3">
+              {note.attachments.map((attachment, index) => (
+                <AttachmentRow
+                  attachment={attachment}
+                  index={index}
+                  key={attachment.id}
+                  noteId={note.id}
+                  onDelete={onDeleteAttachment}
+                  onReplace={onReplaceAttachment}
+                />
+              ))}
+            </div>
+          ) : (
+            <p className="mt-3 rounded-md border border-dashed border-[#dfe3e7] px-4 py-6 text-sm text-[#6f7478]">
+              No attachments yet.
+            </p>
+          )}
+        </section>
+
+        <section className="mt-8 border-t border-[#eceff1] pt-5">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-lg font-semibold">Sharing</h2>
+            <ActionButton
+              onClick={() =>
+                activeShare ? onCopyShare(activeShare) : onShare(note.id)
+              }
+            >
+              {activeShare ? "Copy link" : "Create link"}
+            </ActionButton>
+          </div>
+          {activeShare ? (
+            <div className="mt-3 rounded-md border border-[#dfe3e7] p-4">
+              <p className="break-all text-sm text-[#3c4043]">
+                {getShareUrl(activeShare.token)}
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <ActionButton onClick={() => onCopyShare(activeShare)}>
+                  {copiedShareId === activeShare.id ? "Copied" : "Copy"}
+                </ActionButton>
+                <ActionButton danger onClick={() => onRevokeShare(activeShare)}>
+                  Revoke
+                </ActionButton>
+              </div>
+            </div>
+          ) : (
+            <p className="mt-3 rounded-md border border-dashed border-[#dfe3e7] px-4 py-6 text-sm text-[#6f7478]">
+              This note has not been shared.
+            </p>
+          )}
+        </section>
+      </section>
+    </div>
+  );
+}
+
+function AttachmentRow({
+  attachment,
+  index,
+  noteId,
+  onDelete,
+  onReplace,
+}: {
+  attachment: NoteAttachmentRecord;
+  index: number;
+  noteId: number;
+  onDelete: (noteId: number, attachmentId: string) => void;
+  onReplace: (noteId: number, attachmentId: string, file?: File) => void;
+}) {
+  const replaceInputRef = useRef<HTMLInputElement | null>(null);
+
+  return (
+    <div className="rounded-md border border-[#dfe3e7] p-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <a
+          className="min-w-0 flex-1 truncate text-sm font-semibold text-[#202124] underline-offset-4 hover:underline"
+          href={attachment.fileUrl}
+          rel="noreferrer"
+          target="_blank"
+        >
+          {getAttachmentLabel(attachment, index)}
+        </a>
+        <div className="flex flex-wrap gap-2">
+          <ActionButton onClick={() => replaceInputRef.current?.click()}>
+            Replace
+          </ActionButton>
+          <ActionButton danger onClick={() => onDelete(noteId, attachment.id)}>
+            Remove
+          </ActionButton>
+        </div>
+      </div>
+      <p className="mt-2 text-xs text-[#6f7478]">
+        {getAttachmentKind(attachment)} · {formatDate(attachment.createdAt)}
+      </p>
+      {attachment.fileType.startsWith("image/") ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          alt={attachment.caption || "Attachment preview"}
+          className="mt-3 max-h-64 rounded-md border border-[#eceff1] object-contain"
+          src={attachment.fileUrl}
+        />
+      ) : null}
+      <input
+        className="hidden"
+        onChange={(event) =>
+          onReplace(noteId, attachment.id, event.target.files?.[0])
+        }
+        ref={replaceInputRef}
+        type="file"
+      />
+    </div>
+  );
+}
+
+function ActionButton({
+  children,
+  danger = false,
+  onClick,
+}: {
+  children: React.ReactNode;
+  danger?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      className={`h-9 rounded-md border px-3 text-sm font-semibold transition ${
+        danger
+          ? "border-[#f2b8b5] text-[#a50e0e] hover:bg-[#fce8e6]"
+          : "border-[#dfe3e7] text-[#303134] hover:bg-[#f8f9fa]"
+      }`}
+      onClick={onClick}
+      type="button"
+    >
+      {children}
+    </button>
   );
 }
 
@@ -1044,8 +1892,55 @@ function compareDates(a?: string, b?: string) {
   return new Date(b ?? 0).getTime() - new Date(a ?? 0).getTime();
 }
 
+function normalizeDateInput(value?: string | null) {
+  if (!value) {
+    return new Date().toISOString().slice(0, 10);
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value.slice(0, 10);
+  }
+
+  return date.toISOString().slice(0, 10);
+}
+
 function sortNewest(a: NoteRecord, b: NoteRecord) {
   return compareDates(a.createdAt ?? a.updatedAt, b.createdAt ?? b.updatedAt);
+}
+
+function sortStudentsByName(a: StudentRecord, b: StudentRecord) {
+  const aKey = getStudentSortKey(a.name);
+  const bKey = getStudentSortKey(b.name);
+
+  return (
+    aKey.last.localeCompare(bKey.last, undefined, { sensitivity: "base" }) ||
+    aKey.first.localeCompare(bKey.first, undefined, { sensitivity: "base" }) ||
+    a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
+  );
+}
+
+function getStudentSortKey(name: string) {
+  const suffixes = new Set(["jr", "jr.", "sr", "sr.", "ii", "iii", "iv", "v"]);
+  const parts = name
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  if (parts.length <= 1) {
+    return {
+      first: parts[0] || "",
+      last: parts[0] || "",
+    };
+  }
+
+  const lastPart = parts[parts.length - 1].toLowerCase();
+  const lastNameIndex = suffixes.has(lastPart) ? parts.length - 2 : parts.length - 1;
+
+  return {
+    first: parts.slice(0, lastNameIndex).join(" "),
+    last: parts[lastNameIndex] || parts[0] || "",
+  };
 }
 
 function formatDate(value?: string | null) {
@@ -1079,6 +1974,48 @@ function getAttachmentLabel(attachment: NoteAttachmentRecord, index: number) {
   }
 
   return `File ${index + 1}`;
+}
+
+function getAttachmentKind(attachment: NoteAttachmentRecord) {
+  if (attachment.fileType.startsWith("image/")) {
+    return "Image";
+  }
+
+  if (attachment.fileType.startsWith("video/")) {
+    return "Video";
+  }
+
+  if (attachment.fileType.startsWith("audio/")) {
+    return "Audio";
+  }
+
+  if (attachment.fileType === "application/pdf") {
+    return "PDF";
+  }
+
+  return "File";
+}
+
+function getActiveShareLink(note: NoteRecord) {
+  return note.shareLinks?.find((shareLink) => {
+    if (shareLink.isActive === false) {
+      return false;
+    }
+
+    if (!shareLink.expiresAt) {
+      return true;
+    }
+
+    return new Date(shareLink.expiresAt).getTime() > Date.now();
+  });
+}
+
+function getShareUrl(token: string) {
+  if (typeof window === "undefined") {
+    return `/share/${token}`;
+  }
+
+  return `${window.location.origin}/share/${token}`;
 }
 
 function getErrorMessage(error: unknown) {
