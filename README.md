@@ -124,12 +124,14 @@ Keep `DB_SYNCHRONIZE=false` in production.
 
 ## Deployment Notes
 
+Production web domain: `troveclass.ca`.
+
 Web previews and production builds need `NEXT_TURNSTILE_SITE_KEY` set in
 Vercel for the matching environment. The API deployment needs
 `TURNSTILE_SECRET`.
 
 Cloudflare Turnstile must allow the deployed web hostnames, including any
-Vercel preview hostnames you want to test.
+Vercel preview hostnames you want to test and `troveclass.ca`.
 
 The mobile release config still needs real EAS project details and final
 production API URLs before TestFlight.
