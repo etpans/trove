@@ -2,6 +2,7 @@
 
 Trove is a classroom notes app for teachers. It helps keep class boards,
 student notes, attachments, and shareable updates in one place.
+View deployed application at https://www.troveclass.ca/
 
 The repo is a pnpm workspace with three main apps:
 
