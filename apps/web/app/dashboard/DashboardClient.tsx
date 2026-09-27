@@ -109,6 +109,11 @@ type AttachmentCaptionDraft = {
   noteId: number;
 };
 
+type AttachmentViewerState = {
+  attachment: NoteAttachmentRecord;
+  index: number;
+};
+
 const queryClient = new QueryClient();
 
 const cardColors = [
@@ -216,6 +221,8 @@ function DashboardContent() {
   >([]);
   const [attachmentCaptionDraft, setAttachmentCaptionDraft] =
     useState<AttachmentCaptionDraft | null>(null);
+  const [attachmentViewer, setAttachmentViewer] =
+    useState<AttachmentViewerState | null>(null);
   const [copiedShareId, setCopiedShareId] = useState<string | null>(null);
   const [profileOpen, setProfileOpen] = useState(false);
   const [studentSortMode, setStudentSortMode] =
@@ -1057,6 +1064,12 @@ function DashboardContent() {
                   onAttach={handleAttachment}
                   onOpen={() => openNote(note)}
                   onShare={() => setShareDialogNoteId(note.id)}
+                  onViewAttachment={(attachment, attachmentIndex) =>
+                    setAttachmentViewer({
+                      attachment,
+                      index: attachmentIndex,
+                    })
+                  }
                   studentName={
                     students.find((student) => student.id === note.studentId)
                       ?.name
@@ -1110,6 +1123,12 @@ function DashboardContent() {
                   onOpen={() => openNote(note)}
                   onPin={() => togglePinned(note.id)}
                   onShare={() => setShareDialogNoteId(note.id)}
+                  onViewAttachment={(attachment, attachmentIndex) =>
+                    setAttachmentViewer({
+                      attachment,
+                      index: attachmentIndex,
+                    })
+                  }
                 />
               )}
             />
@@ -1417,6 +1436,12 @@ function DashboardContent() {
         onReplaceAttachment={handleReplaceAttachment}
         onShare={(noteId) => setShareDialogNoteId(noteId)}
         onSubmit={handleUpdateNote}
+        onViewAttachment={(attachment, attachmentIndex) =>
+          setAttachmentViewer({
+            attachment,
+            index: attachmentIndex,
+          })
+        }
         setNoteForm={setNoteForm}
         students={classStudents}
         submitting={submitting}
@@ -1440,6 +1465,11 @@ function DashboardContent() {
         onClose={() => setAttachmentCaptionDraft(null)}
         onSubmit={handleAttachmentCaptionSubmit}
         submitting={submitting}
+      />
+      <AttachmentViewer
+        attachment={attachmentViewer?.attachment}
+        index={attachmentViewer?.index ?? 0}
+        onClose={() => setAttachmentViewer(null)}
       />
       <DeleteClassDialog
         classItem={deleteClassTarget}
@@ -1687,6 +1717,7 @@ function NoteCard({
   onOpen,
   onPin,
   onShare,
+  onViewAttachment,
   studentName,
 }: {
   color: string;
@@ -1696,6 +1727,7 @@ function NoteCard({
   onOpen: () => void;
   onPin?: () => void;
   onShare: () => void;
+  onViewAttachment: (attachment: NoteAttachmentRecord, index: number) => void;
   studentName?: string;
 }) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -1751,16 +1783,17 @@ function NoteCard({
       {note.attachments?.length ? (
         <div className="mt-4 grid gap-2">
           {note.attachments.map((attachment, index) => (
-            <a
-              className="block truncate rounded-md bg-white/45 px-3 py-2 text-xs font-semibold text-[#303134] transition hover:bg-white/75 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#202124]/30"
-              href={attachment.fileUrl}
+            <button
+              className="block truncate rounded-md bg-white/45 px-3 py-2 text-left text-xs font-semibold text-[#303134] transition hover:bg-white/75 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#202124]/30"
               key={attachment.id}
-              onClick={(event) => event.stopPropagation()}
-              rel="noreferrer"
-              target="_blank"
+              onClick={(event) => {
+                event.stopPropagation();
+                onViewAttachment(attachment, index);
+              }}
+              type="button"
             >
               {attachment.caption || getAttachmentLabel(attachment, index)}
-            </a>
+            </button>
           ))}
         </div>
       ) : null}
@@ -1885,6 +1918,7 @@ function NoteModal({
   onReplaceAttachment,
   onShare,
   onSubmit,
+  onViewAttachment,
   setNoteForm,
   students,
   submitting,
@@ -1905,6 +1939,7 @@ function NoteModal({
   ) => void;
   onShare: (noteId: number) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onViewAttachment: (attachment: NoteAttachmentRecord, index: number) => void;
   setNoteForm: React.Dispatch<React.SetStateAction<NoteForm>>;
   students: StudentRecord[];
   submitting: boolean;
@@ -2016,6 +2051,7 @@ function NoteModal({
                   noteId={note.id}
                   onDelete={onDeleteAttachment}
                   onReplace={onReplaceAttachment}
+                  onView={onViewAttachment}
                 />
               ))}
             </div>
@@ -2061,27 +2097,31 @@ function AttachmentRow({
   noteId,
   onDelete,
   onReplace,
+  onView,
 }: {
   attachment: NoteAttachmentRecord;
   index: number;
   noteId: number;
   onDelete: (noteId: number, attachmentId: string) => void;
   onReplace: (noteId: number, attachmentId: string, file?: File) => void;
+  onView: (attachment: NoteAttachmentRecord, index: number) => void;
 }) {
   const replaceInputRef = useRef<HTMLInputElement | null>(null);
 
   return (
     <div className="rounded-md border border-[#dfe3e7] p-3">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <a
-          className="min-w-0 flex-1 truncate text-sm font-semibold text-[#202124] underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1a73e8]"
-          href={attachment.fileUrl}
-          rel="noreferrer"
-          target="_blank"
+        <button
+          className="min-w-0 flex-1 cursor-pointer truncate text-left text-sm font-semibold text-[#202124] underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1a73e8]"
+          onClick={() => onView(attachment, index)}
+          type="button"
         >
           {getAttachmentLabel(attachment, index)}
-        </a>
+        </button>
         <div className="flex flex-wrap gap-2">
+          <ActionButton onClick={() => onView(attachment, index)}>
+            View
+          </ActionButton>
           <ActionButton onClick={() => replaceInputRef.current?.click()}>
             Replace
           </ActionButton>
@@ -2094,12 +2134,18 @@ function AttachmentRow({
         {getAttachmentKind(attachment)} · {formatDate(attachment.createdAt)}
       </p>
       {attachment.fileType.startsWith("image/") ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          alt={attachment.caption || "Attachment preview"}
-          className="mt-3 max-h-64 rounded-md border border-[#eceff1] object-contain"
-          src={attachment.fileUrl}
-        />
+        <button
+          className="mt-3 block cursor-pointer rounded-md border border-[#eceff1] bg-[#f8fafd] p-2 transition hover:border-[#1a73e8]"
+          onClick={() => onView(attachment, index)}
+          type="button"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            alt={attachment.caption || "Attachment preview"}
+            className="max-h-64 rounded object-contain"
+            src={attachment.fileUrl}
+          />
+        </button>
       ) : null}
       <input
         className="hidden"
@@ -2109,6 +2155,139 @@ function AttachmentRow({
         ref={replaceInputRef}
         type="file"
       />
+    </div>
+  );
+}
+
+function AttachmentViewer({
+  attachment,
+  index,
+  onClose,
+}: {
+  attachment?: NoteAttachmentRecord;
+  index: number;
+  onClose: () => void;
+}) {
+  if (!attachment) {
+    return null;
+  }
+
+  const label = getAttachmentLabel(attachment, index);
+
+  return (
+    <div
+      className="fixed inset-0 z-[70] flex items-end justify-center bg-[#202124]/40 p-0 sm:items-center sm:p-6"
+      onClick={onClose}
+    >
+      <section
+        className="flex max-h-[94vh] w-full max-w-5xl flex-col overflow-hidden rounded-t-2xl bg-white shadow-[0_20px_70px_rgba(32,33,36,0.28)] sm:rounded-lg"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <header className="flex items-start justify-between gap-4 border-b border-[#eceff1] px-5 py-4">
+          <div className="min-w-0">
+            <h2 className="truncate text-xl font-semibold text-[#202124]">
+              {label}
+            </h2>
+            <p className="mt-1 text-sm text-[#6f7478]">
+              {getAttachmentKind(attachment)} · {attachment.fileType || "file"}
+            </p>
+          </div>
+          <button
+            aria-label="Close attachment preview"
+            className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-md text-[#5f6368] transition hover:bg-[#f1f3f4] active:scale-95"
+            onClick={onClose}
+            type="button"
+          >
+            <IconClose />
+          </button>
+        </header>
+
+        <div className="min-h-0 flex-1 overflow-auto bg-[#f8fafd] p-4 sm:p-5">
+          <AttachmentPreview attachment={attachment} label={label} />
+        </div>
+
+        <footer className="flex flex-wrap justify-end gap-2 border-t border-[#eceff1] px-5 py-4">
+          <a
+            className="inline-flex h-10 items-center justify-center rounded-md border border-[#dfe3e7] px-4 text-sm font-semibold text-[#303134] transition hover:bg-[#f8f9fa]"
+            href={attachment.fileUrl}
+            rel="noreferrer"
+            target="_blank"
+          >
+            Open in new tab
+          </a>
+          <a
+            className="inline-flex h-10 items-center justify-center rounded-md bg-[#1a73e8] px-4 text-sm font-semibold text-white transition hover:bg-[#1558b0]"
+            download
+            href={attachment.fileUrl}
+          >
+            Download
+          </a>
+        </footer>
+      </section>
+    </div>
+  );
+}
+
+function AttachmentPreview({
+  attachment,
+  label,
+}: {
+  attachment: NoteAttachmentRecord;
+  label: string;
+}) {
+  if (attachment.fileType.startsWith("image/")) {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          alt={label}
+          className="max-h-[70vh] max-w-full rounded-lg border border-[#eceff1] bg-white object-contain"
+          src={attachment.fileUrl}
+        />
+      </div>
+    );
+  }
+
+  if (attachment.fileType.startsWith("video/")) {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center">
+        <video
+          className="max-h-[70vh] w-full max-w-4xl rounded-lg bg-black"
+          controls
+          src={attachment.fileUrl}
+        />
+      </div>
+    );
+  }
+
+  if (attachment.fileType.startsWith("audio/")) {
+    return (
+      <div className="mx-auto flex min-h-[35vh] max-w-2xl flex-col justify-center rounded-lg border border-[#eceff1] bg-white p-6">
+        <p className="mb-4 text-sm font-semibold text-[#202124]">{label}</p>
+        <audio className="w-full" controls src={attachment.fileUrl} />
+      </div>
+    );
+  }
+
+  if (isEmbeddableDocument(attachment)) {
+    return (
+      <iframe
+        className="h-[70vh] w-full rounded-lg border border-[#dfe3e7] bg-white"
+        src={attachment.fileUrl}
+        title={label}
+      />
+    );
+  }
+
+  return (
+    <div className="mx-auto flex min-h-[45vh] max-w-lg flex-col items-center justify-center rounded-lg border border-dashed border-[#dfe3e7] bg-white p-8 text-center">
+      <p className="text-base font-semibold text-[#202124]">
+        Preview unavailable
+      </p>
+      <p className="mt-2 text-sm leading-6 text-[#6f7478]">
+        This file type cannot be previewed in the browser. Open it in a new tab
+        or download it to view the contents.
+      </p>
     </div>
   );
 }
@@ -2965,7 +3144,24 @@ function getAttachmentKind(attachment: NoteAttachmentRecord) {
     return "PDF";
   }
 
+  if (isTextDocument(attachment)) {
+    return "Text";
+  }
+
   return "File";
+}
+
+function isTextDocument(attachment: NoteAttachmentRecord) {
+  return (
+    attachment.fileType === "text/plain" ||
+    attachment.fileType === "text/markdown" ||
+    attachment.fileType === "text/csv" ||
+    attachment.fileType === "application/json"
+  );
+}
+
+function isEmbeddableDocument(attachment: NoteAttachmentRecord) {
+  return attachment.fileType === "application/pdf" || isTextDocument(attachment);
 }
 
 function getActiveShareLink(note: NoteRecord) {

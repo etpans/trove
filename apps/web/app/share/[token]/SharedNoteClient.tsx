@@ -34,6 +34,19 @@ function isImageAttachment(attachment: SharedAttachment) {
   return attachment.fileType.startsWith("image/");
 }
 
+function isTextAttachment(attachment: SharedAttachment) {
+  return (
+    attachment.fileType === "text/plain" ||
+    attachment.fileType === "text/markdown" ||
+    attachment.fileType === "text/csv" ||
+    attachment.fileType === "application/json"
+  );
+}
+
+function isEmbeddableAttachment(attachment: SharedAttachment) {
+  return attachment.fileType === "application/pdf" || isTextAttachment(attachment);
+}
+
 function getAttachmentKind(attachment: SharedAttachment) {
   if (attachment.fileType.startsWith("image/")) {
     return "Image";
@@ -41,6 +54,10 @@ function getAttachmentKind(attachment: SharedAttachment) {
 
   if (attachment.fileType === "application/pdf") {
     return "PDF";
+  }
+
+  if (isTextAttachment(attachment)) {
+    return "Text";
   }
 
   if (attachment.fileType.startsWith("video/")) {
@@ -131,38 +148,30 @@ export default function SharedNoteClient({ token }: { token: string }) {
               </div>
             ) : null}
             {sharedNote.note.attachments?.length ? (
-              <div className="mt-7 grid gap-3 sm:grid-cols-2">
+              <div className="mt-7 grid gap-4">
                 {sharedNote.note.attachments.map((attachment, index) => {
                   const label = getAttachmentLabel(attachment, index);
 
                   return (
-                    <a
-                      className="group overflow-hidden rounded-lg border border-[#d7dce5] bg-[#fafaf8] text-sm text-[#111111] transition hover:border-[#378ADD]"
-                      href={attachment.fileUrl}
+                    <div
+                      className="overflow-hidden rounded-lg border border-[#d7dce5] bg-[#fafaf8] text-sm text-[#111111]"
                       key={attachment.id}
-                      rel="noreferrer"
-                      target="_blank"
                     >
-                      {isImageAttachment(attachment) ? (
-                        <div
-                          aria-label={label}
-                          className="h-40 w-full bg-white bg-cover bg-center"
-                          role="img"
-                          style={{
-                            backgroundImage: `url(${attachment.fileUrl})`,
-                          }}
-                        />
-                      ) : (
-                        <div className="flex h-40 items-center justify-center bg-white text-xs font-semibold uppercase tracking-[0.12em] text-[#6b6b6b]">
-                          {getAttachmentKind(attachment)}
-                        </div>
-                      )}
-                      <div className="border-t border-[#d7dce5] px-3 py-2">
-                        <span className="block truncate font-medium text-[#245f99] group-hover:underline">
+                      <SharedAttachmentPreview attachment={attachment} label={label} />
+                      <div className="flex flex-col gap-2 border-t border-[#d7dce5] px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+                        <span className="block truncate font-medium text-[#245f99]">
                           {label}
                         </span>
+                        <a
+                          className="shrink-0 text-xs font-semibold text-[#378ADD] underline-offset-4 hover:underline"
+                          href={attachment.fileUrl}
+                          rel="noreferrer"
+                          target="_blank"
+                        >
+                          Open original
+                        </a>
                       </div>
-                    </a>
+                    </div>
                   );
                 })}
               </div>
@@ -175,5 +184,58 @@ export default function SharedNoteClient({ token }: { token: string }) {
         )}
       </div>
     </main>
+  );
+}
+
+function SharedAttachmentPreview({
+  attachment,
+  label,
+}: {
+  attachment: SharedAttachment;
+  label: string;
+}) {
+  if (isImageAttachment(attachment)) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        alt={label}
+        className="max-h-[520px] w-full bg-white object-contain"
+        src={attachment.fileUrl}
+      />
+    );
+  }
+
+  if (attachment.fileType.startsWith("video/")) {
+    return (
+      <video
+        className="max-h-[520px] w-full bg-black"
+        controls
+        src={attachment.fileUrl}
+      />
+    );
+  }
+
+  if (attachment.fileType.startsWith("audio/")) {
+    return (
+      <div className="bg-white p-5">
+        <audio className="w-full" controls src={attachment.fileUrl} />
+      </div>
+    );
+  }
+
+  if (isEmbeddableAttachment(attachment)) {
+    return (
+      <iframe
+        className="h-[520px] w-full bg-white"
+        src={attachment.fileUrl}
+        title={label}
+      />
+    );
+  }
+
+  return (
+    <div className="flex h-40 items-center justify-center bg-white text-xs font-semibold uppercase tracking-[0.12em] text-[#6b6b6b]">
+      {getAttachmentKind(attachment)}
+    </div>
   );
 }
