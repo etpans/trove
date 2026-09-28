@@ -29,6 +29,8 @@ const toSignedUrlExpiry = (value?: string) => {
   return Number.isFinite(expiresIn) && expiresIn > 0 ? expiresIn : 3600;
 };
 
+const stripLeadingSlash = (path: string) => path.replace(/^\/+/, '');
+
 @Injectable()
 export class S3AttachmentStorageService {
   private readonly s3: S3Client;
@@ -82,19 +84,22 @@ export class S3AttachmentStorageService {
   }
 
   async getReadableUrl(fileKey?: string | null, fallbackUrl?: string | null) {
-    if (!fileKey) {
+    const readableFileKey =
+      fileKey ?? this.createFileKeyFromStoredUrl(fallbackUrl);
+
+    if (!readableFileKey) {
       return fallbackUrl ?? '';
     }
 
     if (this.publicBaseUrl) {
-      return `${this.publicBaseUrl.replace(/\/$/, '')}/${encodeS3Key(fileKey)}`;
+      return `${this.publicBaseUrl.replace(/\/$/, '')}/${encodeS3Key(readableFileKey)}`;
     }
 
     return getSignedUrl(
       this.s3,
       new GetObjectCommand({
         Bucket: this.getBucket(),
-        Key: fileKey,
+        Key: readableFileKey,
       }),
       { expiresIn: this.signedUrlExpiresIn },
     );
@@ -119,6 +124,40 @@ export class S3AttachmentStorageService {
     }
 
     return `https://${this.getBucket()}.s3.${this.region}.amazonaws.com/${encodeS3Key(fileKey)}`;
+  }
+
+  private createFileKeyFromStoredUrl(fileUrl?: string | null) {
+    if (!fileUrl) {
+      return null;
+    }
+
+    try {
+      const url = new URL(fileUrl);
+      const bucket = this.getBucket();
+      const host = url.hostname.toLowerCase();
+      const path = decodeURIComponent(stripLeadingSlash(url.pathname));
+
+      if (
+        host === `${bucket}.s3.${this.region}.amazonaws.com` ||
+        host === `${bucket}.s3.amazonaws.com`
+      ) {
+        return path;
+      }
+
+      if (
+        host === `s3.${this.region}.amazonaws.com` ||
+        host === 's3.amazonaws.com'
+      ) {
+        const bucketPathPrefix = `${bucket}/`;
+        return path.startsWith(bucketPathPrefix)
+          ? path.slice(bucketPathPrefix.length)
+          : null;
+      }
+    } catch {
+      return null;
+    }
+
+    return null;
   }
 
   private getBucket() {
