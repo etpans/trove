@@ -102,7 +102,7 @@ export class NotesService {
   }
 
   async findAll(teacherId: string) {
-    return this.noteRepo
+    const notes = await this.noteRepo
       .createQueryBuilder('note')
       .leftJoinAndSelect('note.student', 'student')
       .innerJoinAndSelect('student.class', 'class', 'class.deletedAt IS NULL')
@@ -113,30 +113,17 @@ export class NotesService {
       .where('note.teacherId = :teacherId', { teacherId })
       .orderBy('note.createdAt', 'DESC')
       .getMany();
+
+    return Promise.all(notes.map((note) => this.prepareNoteResponse(note)));
   }
 
   async findOne(teacherId: string, id: number) {
-    const note = await this.noteRepo
-      .createQueryBuilder('note')
-      .leftJoinAndSelect('note.student', 'student')
-      .innerJoinAndSelect('student.class', 'class', 'class.deletedAt IS NULL')
-      .leftJoinAndSelect('note.subject', 'subject')
-      .leftJoinAndSelect('note.tags', 'tags')
-      .leftJoinAndSelect('note.attachments', 'attachments')
-      .leftJoinAndSelect('note.shareLinks', 'shareLinks')
-      .where('note.id = :id', { id })
-      .andWhere('note.teacherId = :teacherId', { teacherId })
-      .getOne();
-
-    if (!note) {
-      throw new NotFoundException('Note not found');
-    }
-
-    return note;
+    const note = await this.findOneEntity(teacherId, id);
+    return this.prepareNoteResponse(note);
   }
 
   async update(teacherId: string, id: number, updateNoteDto: UpdateNoteDto) {
-    const note = await this.findOne(teacherId, id);
+    const note = await this.findOneEntity(teacherId, id);
 
     if (updateNoteDto.studentId) {
       const student = await this.studentRepo.findOne({
@@ -213,7 +200,7 @@ export class NotesService {
   }
 
   async remove(teacherId: string, id: number) {
-    const note = await this.findOne(teacherId, id);
+    const note = await this.findOneEntity(teacherId, id);
     await this.noteRepo.remove(note);
     return { deleted: true };
   }
@@ -224,7 +211,7 @@ export class NotesService {
     file: Express.Multer.File,
     caption?: string,
   ) {
-    const note = await this.findOne(teacherId, noteId);
+    const note = await this.findOneEntity(teacherId, noteId);
 
     if (!file || !file.buffer) {
       throw new BadRequestException('Attachment file is required');
@@ -244,7 +231,8 @@ export class NotesService {
       caption: caption ?? null,
     });
 
-    return this.attachmentRepo.save(attachment);
+    const saved = await this.attachmentRepo.save(attachment);
+    return this.prepareAttachmentResponse(saved);
   }
 
   async removeAttachment(
@@ -333,7 +321,7 @@ export class NotesService {
         await this.attachmentStorage.deleteObject(previousFileKey);
       }
 
-      return saved;
+      return this.prepareAttachmentResponse(saved);
     } catch (error) {
       if (uploaded) {
         await this.attachmentStorage.deleteObject(uploaded.fileKey);
@@ -343,7 +331,7 @@ export class NotesService {
   }
 
   async createShareLink(teacherId: string, noteId: number) {
-    const note = await this.findOne(teacherId, noteId);
+    const note = await this.findOneEntity(teacherId, noteId);
     const existingShareLink = await this.shareLinkRepo.findOne({
       where: {
         noteId: note.id,
@@ -402,6 +390,50 @@ export class NotesService {
       throw new NotFoundException('Shared link has expired');
     }
 
+    await this.prepareNoteResponse(shareLink.note);
     return shareLink;
+  }
+
+  private async prepareNoteResponse<T extends Note>(note: T): Promise<T> {
+    if (note.attachments?.length) {
+      await Promise.all(
+        note.attachments.map((attachment) =>
+          this.prepareAttachmentResponse(attachment),
+        ),
+      );
+    }
+
+    return note;
+  }
+
+  private async findOneEntity(teacherId: string, id: number) {
+    const note = await this.noteRepo
+      .createQueryBuilder('note')
+      .leftJoinAndSelect('note.student', 'student')
+      .innerJoinAndSelect('student.class', 'class', 'class.deletedAt IS NULL')
+      .leftJoinAndSelect('note.subject', 'subject')
+      .leftJoinAndSelect('note.tags', 'tags')
+      .leftJoinAndSelect('note.attachments', 'attachments')
+      .leftJoinAndSelect('note.shareLinks', 'shareLinks')
+      .where('note.id = :id', { id })
+      .andWhere('note.teacherId = :teacherId', { teacherId })
+      .getOne();
+
+    if (!note) {
+      throw new NotFoundException('Note not found');
+    }
+
+    return note;
+  }
+
+  private async prepareAttachmentResponse<T extends NoteAttachmentEntity>(
+    attachment: T,
+  ): Promise<T> {
+    attachment.fileUrl = await this.attachmentStorage.getReadableUrl(
+      attachment.fileKey,
+      attachment.fileUrl,
+    );
+
+    return attachment;
   }
 }
