@@ -1,8 +1,10 @@
+process.env.NODE_ENV = 'test';
+process.env.DATABASE_URL = process.env.TEST_DATABASE_URL ?? '';
 process.env.DB_HOST ??= 'localhost';
 process.env.DB_PORT ??= '5432';
 process.env.DB_USER ??= 'dev';
 process.env.DB_PASS ??= 'dev';
-process.env.DB_NAME ??= 'trove';
+process.env.DB_NAME ??= 'trove_test';
 process.env.DB_SYNCHRONIZE ??= 'true';
 process.env.DB_MIGRATIONS_RUN ??= 'false';
 

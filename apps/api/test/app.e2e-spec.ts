@@ -30,6 +30,20 @@ describe('API (e2e)', () => {
     { verificationCode?: string; passwordResetCode?: string }
   >();
 
+  const assertSafeTestDatabase = () => {
+    const { database, url } = dataSource.options as {
+      database?: string;
+      url?: string;
+    };
+    const databaseName = url ? new URL(url).pathname.slice(1) : database;
+
+    if (!databaseName || !/(^|[_-])(test|e2e)([_-]|$)/i.test(databaseName)) {
+      throw new Error(
+        `Refusing to clear non-test database "${databaseName ?? 'unknown'}"`,
+      );
+    }
+  };
+
   const emailServiceMock = {
     sendVerificationCode: jest.fn(async (to: string, code: string) => {
       emailCodes.set(to, {
@@ -47,6 +61,8 @@ describe('API (e2e)', () => {
 
   const clearDatabase = async () => {
     if (!dataSource?.isInitialized) return;
+
+    assertSafeTestDatabase();
 
     await dataSource
       .query('DELETE FROM "note_tags_tag"')

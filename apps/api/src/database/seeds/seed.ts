@@ -15,8 +15,32 @@ import { ShareLinkEntity } from '../../modules/notes/entities/share-link.entity'
 const sha256 = (value: string) =>
   crypto.createHash('sha256').update(value).digest('hex');
 
+const getDatabaseName = () => {
+  if (process.env.DATABASE_URL) {
+    return new URL(process.env.DATABASE_URL).pathname.slice(1);
+  }
+
+  return process.env.DB_NAME || 'trove';
+};
+
+const assertSeedResetAllowed = () => {
+  if (process.env.SEED_ALLOW_DESTRUCTIVE_RESET === 'true') {
+    return;
+  }
+
+  const databaseName = getDatabaseName();
+  if (/(^|[_-])(dev|local|test|e2e)([_-]|$)/i.test(databaseName)) {
+    return;
+  }
+
+  throw new Error(
+    `Refusing to reset database "${databaseName}". Set SEED_ALLOW_DESTRUCTIVE_RESET=true if this is intentional.`,
+  );
+};
+
 export async function seed() {
   console.log('🌱 Starting database seed process...');
+  assertSeedResetAllowed();
 
   if (!AppDataSource.isInitialized) {
     await AppDataSource.initialize();
