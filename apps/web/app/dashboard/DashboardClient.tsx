@@ -7,7 +7,10 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import Link from "next/link";
+import DashboardShell, { type DashboardSection } from "./DashboardShell";
+import CoursesPanel from "./CoursesPanel";
 import {
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -24,7 +27,7 @@ type SessionState = {
   };
 };
 
-type Screen = "home" | "class" | "student";
+type Screen = DashboardSection | "class" | "student";
 type CreateMode =
   | "class"
   | "student"
@@ -114,17 +117,15 @@ type AttachmentViewerState = {
   index: number;
 };
 
-const queryClient = new QueryClient();
-
 const cardColors = [
-  "#F8E36D",
-  "#B7D1F6",
-  "#F5AAA6",
-  "#A7F3D0",
-  "#FFD166",
-  "#C7D2FE",
-  "#F9C6D3",
-  "#BDE0FE",
+  "#F4EFE5",
+  "#EAF0EE",
+  "#F6EAE3",
+  "#EBEDF4",
+  "#F3EDD9",
+  "#E8EFF3",
+  "#F4E9EE",
+  "#ECF0E4",
 ];
 
 const emptyClassForm = (): ClassForm => ({
@@ -145,6 +146,7 @@ const emptyNoteForm: NoteForm = {
 
 async function fetchJson<T>(url: string, init?: RequestInit) {
   const response = await fetch(url, {
+    signal: AbortSignal.timeout(20_000),
     ...init,
     headers: {
       "Content-Type": "application/json",
@@ -154,8 +156,9 @@ async function fetchJson<T>(url: string, init?: RequestInit) {
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
+    if (response.status === 401) throw new Error("Your session has expired. Sign in again to continue.");
     throw new Error(
-      typeof data.message === "string" ? data.message : "Request failed.",
+      Array.isArray(data.message) ? data.message.join(" ") : typeof data.message === "string" ? data.message : "Request failed.",
     );
   }
 
@@ -196,7 +199,10 @@ async function patchMultipartJson<T>(url: string, formData: FormData) {
 
 function DashboardContent() {
   const queryClient = useQueryClient();
-  const [screen, setScreen] = useState<Screen>("home");
+  const [screen, setScreen] = useState<Screen>("overview");
+  const [studentClassId, setStudentClassId] = useState("");
+  const writePending = useRef(false);
+  const createdNoteDraftId = useRef<number | null>(null);
   const [selectedClassId, setSelectedClassId] = useState<number | null>(null);
   const [selectedStudentId, setSelectedStudentId] = useState<number | null>(
     null,
@@ -345,6 +351,7 @@ function DashboardContent() {
       queryClient.invalidateQueries({ queryKey: ["classes"] }),
       queryClient.invalidateQueries({ queryKey: ["students"] }),
       queryClient.invalidateQueries({ queryKey: ["notes"] }),
+      queryClient.invalidateQueries({ queryKey: ["subjects"] }),
     ]);
   }
 
@@ -356,6 +363,8 @@ function DashboardContent() {
   }
 
   function openStudent(studentId: number) {
+    const student = students.find((item) => item.id === studentId);
+    setSelectedClassId(student?.classId ?? null);
     setSelectedStudentId(studentId);
     setDrawerOpen(false);
     setSearch("");
@@ -363,6 +372,7 @@ function DashboardContent() {
   }
 
   function openEditClass(classItem: ClassRecord) {
+    setSelectedClassId(classItem.id);
     setClassForm({
       name: classItem.name,
       session: normalizeDateInput(classItem.session),
@@ -372,6 +382,8 @@ function DashboardContent() {
   }
 
   function openEditStudent(student: StudentRecord) {
+    setSelectedStudentId(student.id);
+    setSelectedClassId(student.classId);
     setStudentForm({
       name: student.name,
       rollNumber: student.rollNumber || "",
@@ -381,6 +393,12 @@ function DashboardContent() {
   }
 
   function openCreateNote(studentId?: number) {
+    if (!students.length) {
+      setScreen("students");
+      setFormError("Add a student before creating a note.");
+      return;
+    }
+    createdNoteDraftId.current = null;
     setNoteForm({
       ...emptyNoteForm,
       studentId: studentId ? String(studentId) : "",
@@ -397,6 +415,8 @@ function DashboardContent() {
   }
 
   function openNote(note: NoteRecord) {
+    const student = students.find((item) => item.id === note.studentId);
+    setSelectedClassId(student?.classId ?? null);
     setSelectedNoteId(note.id);
     setNoteForm({
       content: note.content || "",
@@ -408,6 +428,12 @@ function DashboardContent() {
 
   async function handleCreateClass(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (writePending.current) return;
+    if (classForm.name.trim().length < 2 || classForm.name.trim().length > 30 || !classForm.session) {
+      setFormError("Enter a class name between 2 and 30 characters and a session date.");
+      return;
+    }
+    writePending.current = true;
     setSubmitting(true);
     setFormError(null);
 
@@ -415,7 +441,7 @@ function DashboardContent() {
       await fetchJson<ClassRecord>("/api/classes", {
         body: JSON.stringify({
           color: getCardColor(classes.length),
-          name: classForm.name,
+          name: classForm.name.trim(),
           session: classForm.session,
         }),
         method: "POST",
@@ -426,24 +452,28 @@ function DashboardContent() {
     } catch (error) {
       setFormError(getErrorMessage(error));
     } finally {
+      writePending.current = false;
       setSubmitting(false);
     }
   }
 
   async function handleCreateStudent(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!selectedClassId) {
+    if (writePending.current) return;
+    const classId = Number(studentClassId || selectedClassId);
+    if (!classes.some((item) => item.id === classId) || !studentForm.name.trim()) {
+      setFormError("Choose a class and enter the student's name.");
       return;
     }
-
+    writePending.current = true;
     setSubmitting(true);
     setFormError(null);
 
     try {
       await fetchJson<StudentRecord>("/api/students", {
         body: JSON.stringify({
-          classId: selectedClassId,
-          name: studentForm.name,
+          classId,
+          name: studentForm.name.trim(),
           rollNumber: studentForm.rollNumber || undefined,
         }),
         method: "POST",
@@ -454,24 +484,26 @@ function DashboardContent() {
     } catch (error) {
       setFormError(getErrorMessage(error));
     } finally {
+      writePending.current = false;
       setSubmitting(false);
     }
   }
 
   async function handleUpdateClass(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-
-    if (!selectedClass) {
+    if (writePending.current) return;
+    if (!selectedClass || classForm.name.trim().length < 2 || classForm.name.trim().length > 30 || !classForm.session) {
+      setFormError("Enter a class name between 2 and 30 characters and a session date.");
       return;
     }
-
+    writePending.current = true;
     setSubmitting(true);
     setFormError(null);
 
     try {
       await fetchJson<ClassRecord>(`/api/classes/${selectedClass.id}`, {
         body: JSON.stringify({
-          name: classForm.name,
+          name: classForm.name.trim(),
           session: classForm.session,
         }),
         method: "PATCH",
@@ -481,24 +513,26 @@ function DashboardContent() {
     } catch (error) {
       setFormError(getErrorMessage(error));
     } finally {
+      writePending.current = false;
       setSubmitting(false);
     }
   }
 
   async function handleUpdateStudent(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-
-    if (!selectedStudent) {
+    if (writePending.current) return;
+    if (!selectedStudent || !studentForm.name.trim()) {
+      setFormError("Enter the student's name.");
       return;
     }
-
+    writePending.current = true;
     setSubmitting(true);
     setFormError(null);
 
     try {
       await fetchJson<StudentRecord>(`/api/students/${selectedStudent.id}`, {
         body: JSON.stringify({
-          name: studentForm.name,
+          name: studentForm.name.trim(),
           rollNumber: studentForm.rollNumber || undefined,
         }),
         method: "PATCH",
@@ -508,71 +542,76 @@ function DashboardContent() {
     } catch (error) {
       setFormError(getErrorMessage(error));
     } finally {
+      writePending.current = false;
       setSubmitting(false);
     }
   }
 
   async function handleCreateNote(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (writePending.current) return;
     const studentId = Number(noteForm.studentId || selectedStudentId);
 
-    if (!studentId) {
-      setFormError("Choose a student for this note.");
+    if (!students.some((item) => item.id === studentId) || !noteForm.title.trim() || !noteForm.content.trim()) {
+      setFormError("Choose a student and enter a title and note content.");
       return;
     }
-
+    writePending.current = true;
     setSubmitting(true);
     setFormError(null);
 
     try {
-      const createdNote = await fetchJson<NoteRecord>("/api/notes", {
+      const savedId = createdNoteDraftId.current;
+      const createdNote = await fetchJson<NoteRecord>(savedId ? `/api/notes/${savedId}` : "/api/notes", {
         body: JSON.stringify({
           content: noteForm.content,
           studentId,
-          title: noteForm.title,
+          title: noteForm.title.trim(),
         }),
-        method: "POST",
+        method: savedId ? "PATCH" : "POST",
       });
-
-      await Promise.all(
-        pendingNoteAttachments.map((attachment) => {
+      createdNoteDraftId.current = createdNote.id;
+      for (const attachment of pendingNoteAttachments) {
           const formData = new FormData();
           formData.append("file", attachment.file);
           if (attachment.caption.trim()) {
             formData.append("caption", attachment.caption.trim());
           }
 
-          return fetchMultipartJson(
+          await fetchMultipartJson(
             `/api/notes/${createdNote.id}/attachments`,
             formData,
           );
-        }),
-      );
+          setPendingNoteAttachments((current) => current.filter((item) => item.id !== attachment.id));
+      }
 
       setNoteForm(emptyNoteForm);
       setPendingNoteAttachments([]);
       setCreateMode(null);
+      createdNoteDraftId.current = null;
       await invalidateDashboard();
     } catch (error) {
       setFormError(getErrorMessage(error));
     } finally {
+      writePending.current = false;
       setSubmitting(false);
     }
   }
 
   async function handleUpdateNote(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-
+    if (writePending.current) return;
     if (!selectedNote) {
       return;
     }
 
     const studentId = Number(noteForm.studentId || selectedNote.studentId);
-    if (!studentId) {
-      setFormError("Choose a student for this note.");
+    if (!studentId || !noteForm.title.trim() || !noteForm.content.trim()) {
+      setFormError("Choose a student and enter a title and note content.");
       return;
     }
 
+    writePending.current = true;
     setSubmitting(true);
     setFormError(null);
 
@@ -589,6 +628,7 @@ function DashboardContent() {
     } catch (error) {
       setFormError(getErrorMessage(error));
     } finally {
+      writePending.current = false;
       setSubmitting(false);
     }
   }
@@ -604,7 +644,7 @@ function DashboardContent() {
       if (selectedClassId === classItem.id) {
         setSelectedClassId(null);
         setSelectedStudentId(null);
-        setScreen("home");
+        setScreen("classes");
       }
       setDeleteClassTarget(null);
       setDeleteClassNameInput("");
@@ -818,8 +858,14 @@ function DashboardContent() {
   }
 
   async function handleLogout() {
-    await fetch("/api/auth/logout", { method: "POST" }).catch(() => undefined);
-    window.location.href = "/login";
+    try {
+      await fetchJson("/api/auth/logout", { method: "POST" });
+      queryClient.clear();
+      window.location.href = "/login";
+    } catch (error) {
+      setFormError(getErrorMessage(error));
+      setProfileOpen(false);
+    }
   }
 
   async function handleCopyShare(shareLink: ShareLinkRecord) {
@@ -869,8 +915,36 @@ function DashboardContent() {
     });
   }
 
+  function navigate(section: DashboardSection) {
+    setScreen(section);
+    setSearch("");
+    setFormError(null);
+    setDrawerOpen(false);
+    setProfileOpen(false);
+  }
+
+  function createStudent() {
+    if (!classes.length) {
+      setScreen("classes");
+      setFormError("Create a class before adding a student.");
+      return;
+    }
+    setStudentClassId(String(selectedClassId || classes[0].id));
+    setStudentForm(emptyStudentForm);
+    setFormError(null);
+    setCreateMode("student");
+  }
+
+  const section: DashboardSection = screen === "class" ? "classes" : screen === "student" ? "students" : screen;
+  const matchingStudents = students.filter((student) => [student.name, student.rollNumber, classes.find((item) => item.id === student.classId)?.name].some((value) => includesSearch(value, search)));
+  const matchingNotes = notes.filter((note) => noteMatchesSearch(note, search) || includesSearch(students.find((student) => student.id === note.studentId)?.name, search)).sort(sortNewest);
+
   if (sessionQuery.isLoading) {
     return <DashboardLoading />;
+  }
+
+  if (sessionQuery.isError) {
+    return <main className="flex min-h-screen items-center justify-center bg-[#faf9f6] p-6"><section className="max-w-md"><h1 className="mb-4 text-2xl font-semibold">Unable to open your workspace</h1><ErrorBanner message={getErrorMessage(sessionQuery.error)} /><ActionButton onClick={() => void sessionQuery.refetch()}>Try again</ActionButton></section></main>;
   }
 
   if (sessionQuery.data?.authenticated !== true) {
@@ -878,26 +952,23 @@ function DashboardContent() {
   }
 
   return (
-    <main className="min-h-screen bg-white text-[#202124]">
-      <header className="sticky top-0 z-50 border-b border-[#eceff1] bg-white/95 px-4 py-3 backdrop-blur">
+    <DashboardShell
+      section={section}
+      onNavigate={navigate}
+      onCreateClass={() => { setFormError(null); setCreateMode("class"); }}
+      onCreateStudent={createStudent}
+      onCreateNote={() => openCreateNote(screen === "student" ? selectedStudentId || undefined : undefined)}
+      classCount={classes.length}
+      studentCount={students.length}
+      noteCount={notes.length}
+      header={<header>
         <div className="mx-auto flex max-w-6xl items-center gap-3">
-          <button
-            aria-label="Open students"
-            className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-md text-2xl text-[#5f6368] transition hover:bg-[#f1f3f4] active:scale-95 disabled:cursor-not-allowed disabled:opacity-30"
-            disabled={screen === "home"}
-            onClick={() => setDrawerOpen(true)}
-            type="button"
-          >
-            <IconMenu />
-          </button>
+          {screen === "class" || screen === "student" ? <button aria-label="Open class students" className="rounded-md p-2" onClick={() => setDrawerOpen(true)} type="button"><IconMenu /></button> : null}
           <input
             className="h-12 min-w-0 flex-1 rounded-md border border-[#eceff1] bg-white px-4 text-base shadow-[0_1px_4px_rgba(60,64,67,0.18)] outline-none transition placeholder:text-[#80868b] focus:border-[#4285f4]"
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder={
-              screen === "home"
-                ? "Search classes"
-                : "Search students, notes, files"
-            }
+            aria-label="Search workspace"
+            onChange={(event) => { setSearch(event.target.value); if (screen !== "courses") setScreen("search"); }}
+            placeholder={screen === "courses" ? "Search courses" : "Search your workspace…"}
             value={search}
           />
           <button
@@ -914,7 +985,8 @@ function DashboardContent() {
             user={sessionQuery.data?.user}
           />
         </div>
-      </header>
+      </header>}
+    >
 
       {profileOpen ? (
         <button
@@ -930,14 +1002,29 @@ function DashboardContent() {
         {formError ? <ErrorBanner message={formError} /> : null}
         {pageBusy ? <LoadingBar /> : null}
 
-        {screen === "home" ? (
+        {screen === "overview" ? (
           <>
-            <BoardTitle
+            <BoardTitle title="A little space to teach." subtitle="Your classes, students, and everyday observations. All together." />
+            <div className="dashboard-summary-grid">
+              {([{ label: "Classes", count: classes.length, destination: "classes" }, { label: "Students", count: students.length, destination: "students" }, { label: "Notes", count: notes.length, destination: "notes" }] as const).map((item) => <button className="dashboard-summary-card" type="button" key={item.label} onClick={() => navigate(item.destination)}><span>{item.label}</span><strong>{item.count}</strong><span>Open {item.label.toLowerCase()} <span aria-hidden="true">↗</span></span></button>)}
+            </div>
+            <div className="mb-5 mt-9 flex items-center justify-between"><h2 className="text-lg font-semibold">Recent notes</h2><ActionButton onClick={() => navigate("notes")}>View all notes</ActionButton></div>
+            <KeepGrid emptyText="Capture your first classroom observation. Start with a class and student, then add a note." emptyActionLabel={classes.length ? students.length ? "Add note" : "Add student" : "Add class"} onEmptyAction={() => { if (!classes.length) { setFormError(null); setCreateMode("class"); } else if (!students.length) createStudent(); else openCreateNote(); }} items={[...notes].sort(sortNewest).slice(0, 4)} renderItem={(note, index) => <NoteCard key={note.id} color={getCardColor(index)} note={note} onAttach={handleAttachment} onOpen={() => openNote(note)} onShare={() => setShareDialogNoteId(note.id)} onViewAttachment={(attachment, attachmentIndex) => setAttachmentViewer({ attachment, index: attachmentIndex })} studentName={students.find((student) => student.id === note.studentId)?.name} />} />
+          </>
+        ) : null}
+
+        {screen === "courses" ? <CoursesPanel search={search} /> : null}
+
+        {screen === "search" ? <BoardTitle title="Search" subtitle={search.trim() ? `Results for “${search.trim()}”` : "Find classes, students, and notes across your workspace."} /> : null}
+
+        {screen === "classes" || screen === "search" ? (
+          <>
+            {screen === "search" ? <h2 className="mb-4 text-lg font-semibold">Classes <span className="text-sm text-[#827d75]">{visibleClasses.length}</span></h2> : <BoardTitle
               subtitle={`${visibleClasses.length} classroom board${
                 visibleClasses.length === 1 ? "" : "s"
               }`}
               title="Classes"
-            />
+            />}
             <KeepGrid
               emptyActionLabel="Create class"
               onEmptyAction={() => {
@@ -956,7 +1043,7 @@ function DashboardContent() {
                   key={classItem.id}
                   onClick={() => openClass(classItem.id)}
                   onKeyDown={(event) => {
-                    if (event.key === "Enter" || event.key === " ") {
+                    if (event.target === event.currentTarget && (event.key === "Enter" || event.key === " ")) {
                       event.preventDefault();
                       openClass(classItem.id);
                     }
@@ -998,6 +1085,20 @@ function DashboardContent() {
           </>
         ) : null}
 
+        {screen === "students" || screen === "search" ? (
+          <div className={screen === "search" ? "mt-8" : ""}>
+            {screen === "students" ? <BoardTitle title="Students" subtitle={`${matchingStudents.length} students across your classes`} actions={<ActionButton onClick={createStudent}>Add student</ActionButton>} /> : <h2 className="mb-4 text-lg font-semibold">Students <span className="text-sm text-[#827d75]">{matchingStudents.length}</span></h2>}
+            <KeepGrid emptyText={search.trim() ? "No students match your search." : "Add a student to start keeping observations."} emptyActionLabel="Add student" onEmptyAction={createStudent} items={matchingStudents} renderItem={(student) => <article className="dashboard-student-card" key={student.id}><button type="button" onClick={() => openStudent(student.id)}><span className="dashboard-student-avatar" aria-hidden="true">{student.name.slice(0, 1).toUpperCase()}</span><strong>{student.name}</strong><span>{classes.find((item) => item.id === student.classId)?.name || "Class unavailable"}</span>{student.rollNumber ? <span>Roll {student.rollNumber}</span> : null}</button><ActionButton onClick={() => openEditStudent(student)}>Edit student</ActionButton></article>} />
+          </div>
+        ) : null}
+
+        {screen === "notes" || screen === "search" ? (
+          <div className={screen === "search" ? "mt-8" : ""}>
+            {screen === "notes" ? <BoardTitle title="Notes" subtitle={`${matchingNotes.length} observations, ready when you need them`} actions={<ActionButton onClick={() => openCreateNote()}>Add note</ActionButton>} /> : <h2 className="mb-4 text-lg font-semibold">Notes <span className="text-sm text-[#827d75]">{matchingNotes.length}</span></h2>}
+            <KeepGrid emptyText={search.trim() ? "No notes match your search." : "Create your first note for a student."} emptyActionLabel="Add note" onEmptyAction={() => openCreateNote()} items={matchingNotes} renderItem={(note, index) => <NoteCard key={note.id} color={getCardColor(index)} note={note} onAttach={handleAttachment} onOpen={() => openNote(note)} onShare={() => setShareDialogNoteId(note.id)} onViewAttachment={(attachment, attachmentIndex) => setAttachmentViewer({ attachment, index: attachmentIndex })} studentName={students.find((student) => student.id === note.studentId)?.name} />} />
+          </div>
+        ) : null}
+
         {screen === "class" ? (
           <>
             <BoardTitle
@@ -1016,7 +1117,7 @@ function DashboardContent() {
                   </>
                 ) : null
               }
-              onBack={() => setScreen("home")}
+              onBack={() => navigate("classes")}
               subtitle={`${classStudents.length} student${
                 classStudents.length === 1 ? "" : "s"
               } · ${classNotes.length} visible note${
@@ -1026,11 +1127,7 @@ function DashboardContent() {
             />
             <StudentStrip
               onEditStudent={openEditStudent}
-              onNewStudent={() => {
-                setStudentForm(emptyStudentForm);
-                setFormError(null);
-                setCreateMode("student");
-              }}
+              onNewStudent={createStudent}
               onOpenStudent={openStudent}
               onSortChange={setStudentSortMode}
               onViewChange={setStudentViewMode}
@@ -1046,9 +1143,7 @@ function DashboardContent() {
                   return;
                 }
 
-                setStudentForm(emptyStudentForm);
-                setFormError(null);
-                setCreateMode("student");
+                createStudent();
               }}
               emptyText={
                 search.trim()
@@ -1136,24 +1231,26 @@ function DashboardContent() {
         ) : null}
       </section>
 
-      <button
+      {screen !== "courses" ? <button
         aria-label="Create"
         className="fixed bottom-7 right-7 z-30 grid h-16 w-16 cursor-pointer place-items-center rounded-full bg-[#1a73e8] text-white shadow-[0_10px_30px_rgba(26,115,232,0.35)] transition duration-150 hover:scale-105 hover:bg-[#1558b0] hover:shadow-[0_14px_36px_rgba(26,115,232,0.42)] active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#1a73e8]"
         onClick={() => {
-          if (screen === "home") {
+          if (screen === "overview" || screen === "classes") {
             setFormError(null);
             setCreateMode("class");
           } else if (screen === "class") {
             setFormError(null);
             setCreateMode("classActions");
+          } else if (screen === "students") {
+            createStudent();
           } else {
-            openCreateNote(selectedStudentId || undefined);
+            openCreateNote(screen === "student" ? selectedStudentId || undefined : undefined);
           }
         }}
         type="button"
       >
         <IconPlus />
-      </button>
+      </button> : null}
 
       <StudentDrawer
         onClose={() => setDrawerOpen(false)}
@@ -1162,7 +1259,7 @@ function DashboardContent() {
         students={drawerStudents}
       />
 
-      <CreateModal onClose={() => setCreateMode(null)} open={createMode !== null}>
+      <CreateModal onClose={() => { if (!submitting) setCreateMode(null); }} open={createMode !== null}>
         {createMode === "classActions" ? (
           <div>
             <ModalHeading
@@ -1171,10 +1268,7 @@ function DashboardContent() {
             />
             <button
               className="mt-5 block w-full cursor-pointer rounded-md border border-[#eceff1] px-4 py-4 text-left text-base font-semibold transition hover:bg-[#f8f9fa] active:scale-[0.99]"
-              onClick={() => {
-                setStudentForm(emptyStudentForm);
-                setCreateMode("student");
-              }}
+              onClick={createStudent}
               type="button"
             >
               Student
@@ -1274,6 +1368,12 @@ function DashboardContent() {
             subtitle="Add a student to the selected class."
             title="New student"
           >
+            <FieldLabel label="Class">
+              <select className={inputClass} value={studentClassId || String(selectedClassId || "")} onChange={(event) => setStudentClassId(event.target.value)} required>
+                <option value="" disabled>Choose a class</option>
+                {classes.map((classItem) => <option key={classItem.id} value={classItem.id}>{classItem.name}</option>)}
+              </select>
+            </FieldLabel>
             <FieldLabel label="Student name">
             <input
               className={inputClass}
@@ -1350,6 +1450,12 @@ function DashboardContent() {
             subtitle="Capture an observation and attach files before saving."
             title="New note"
           >
+            <FieldLabel label="Student">
+              <select className={inputClass} value={noteForm.studentId} onChange={(event) => setNoteForm((current) => ({ ...current, studentId: event.target.value }))} required>
+                <option value="" disabled>Choose a student</option>
+                {students.map((student) => <option key={student.id} value={student.id}>{student.name} · {classes.find((item) => item.id === student.classId)?.name || "Class"}</option>)}
+              </select>
+            </FieldLabel>
             {screen === "class" ? (
               <div className="flex gap-2 overflow-x-auto pb-1">
                 {classStudents.map((student) => {
@@ -1486,7 +1592,7 @@ function DashboardContent() {
         onConfirmationChange={setDeleteClassNameInput}
         submitting={submitting}
       />
-    </main>
+    </DashboardShell>
   );
 }
 
@@ -1738,7 +1844,7 @@ function NoteCard({
       className="min-h-44 cursor-pointer rounded-lg p-4 text-[#202124] shadow-[0_1px_2px_rgba(60,64,67,0.08)] transition duration-150 hover:-translate-y-0.5 hover:shadow-[0_8px_24px_rgba(60,64,67,0.16)] focus-within:ring-2 focus-within:ring-[#202124]/20 sm:p-5"
       onClick={onOpen}
       onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
+        if (event.target === event.currentTarget && (event.key === "Enter" || event.key === " ")) {
           event.preventDefault();
           onOpen();
         }
@@ -1957,6 +2063,9 @@ function NoteModal({
       onClick={onClose}
     >
       <section
+        role="dialog"
+        aria-modal="true"
+        aria-label="Edit student note"
         className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-t-2xl bg-white p-6 shadow-[0_20px_70px_rgba(32,33,36,0.25)] sm:rounded-lg"
         onClick={(event) => event.stopPropagation()}
       >
@@ -1977,6 +2086,9 @@ function NoteModal({
         <form className="mt-4 grid gap-3" onSubmit={onSubmit}>
           {error ? <ErrorBanner message={error} /> : null}
           <input
+            aria-label="Note title"
+            maxLength={120}
+            required
             className={`${inputClass} text-xl font-semibold`}
             onChange={(event) =>
               setNoteForm((current) => ({
@@ -1988,6 +2100,7 @@ function NoteModal({
             value={noteForm.title}
           />
           <select
+            aria-label="Student"
             className={inputClass}
             onChange={(event) =>
               setNoteForm((current) => ({
@@ -2004,6 +2117,8 @@ function NoteModal({
             ))}
           </select>
           <textarea
+            aria-label="Note content"
+            required
             className={`${inputClass} min-h-48 py-3`}
             onChange={(event) =>
               setNoteForm((current) => ({
@@ -2407,6 +2522,32 @@ function CreateModal({
   onClose: () => void;
   open: boolean;
 }) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const closeRef = useRef(onClose);
+  useEffect(() => { closeRef.current = onClose; }, [onClose]);
+  useEffect(() => {
+    if (!open) return;
+    const previousFocus = document.activeElement as HTMLElement | null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    dialogRef.current?.querySelector<HTMLElement>("input, select, textarea, button")?.focus();
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") closeRef.current();
+      if (event.key !== "Tab") return;
+      const controls = dialogRef.current?.querySelectorAll<HTMLElement>("button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), a[href]");
+      if (!controls?.length) return;
+      const first = controls[0];
+      const last = controls[controls.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", onKeyDown);
+      previousFocus?.focus();
+    };
+  }, [open]);
   if (!open) {
     return null;
   }
@@ -2417,7 +2558,11 @@ function CreateModal({
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-lg translate-y-0 rounded-t-2xl bg-white p-5 pt-6 shadow-[0_20px_70px_rgba(32,33,36,0.25)] transition sm:rounded-lg sm:p-6"
+        aria-label="Create or edit record"
+        aria-modal="true"
+        role="dialog"
+        ref={dialogRef}
+        className="relative max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-white p-5 pt-6 shadow-[0_20px_70px_rgba(32,33,36,0.25)] transition sm:rounded-lg sm:p-6"
         onClick={(event) => event.stopPropagation()}
       >
         <button
@@ -2619,16 +2764,9 @@ function ProfileMenu({
               <p className="truncate text-sm font-semibold text-[#202124]">
                 {email}
               </p>
-              <p className="text-xs text-[#6f7478]">Profile picture ready</p>
+              <p className="text-xs text-[#6f7478]">Teacher workspace</p>
             </div>
           </div>
-          <button
-            className="mt-1 block w-full cursor-not-allowed rounded-md px-3 py-2 text-left text-sm font-semibold text-[#80868b]"
-            disabled
-            type="button"
-          >
-            Settings coming soon
-          </button>
           <button
             className="mt-1 block w-full cursor-pointer rounded-md px-3 py-2 text-left text-sm font-semibold text-[#a50e0e] transition hover:bg-[#fce8e6]"
             onClick={onLogout}
@@ -2974,8 +3112,9 @@ function LoadingBar() {
 
 function ErrorBanner({ message }: { message: string }) {
   return (
-    <div className="mb-4 rounded-md border border-[#f2b8b5] bg-[#fce8e6] px-4 py-3 text-sm font-medium text-[#a50e0e]">
+    <div role="alert" className="mb-4 rounded-md border border-[#f2b8b5] bg-[#fce8e6] px-4 py-3 text-sm font-medium text-[#a50e0e]">
       {message}
+      {message.includes("session has expired") ? <Link href="/login" className="ml-2 underline">Sign in</Link> : null}
     </div>
   );
 }
@@ -3194,6 +3333,7 @@ const inputClass =
   "min-h-12 w-full rounded-md border border-[#dfe3e7] bg-white px-4 text-base text-[#202124] outline-none transition placeholder:text-[#80868b] focus:border-[#4285f4]";
 
 export default function DashboardClient() {
+  const [queryClient] = useState(() => new QueryClient());
   return (
     <QueryClientProvider client={queryClient}>
       <DashboardContent />
