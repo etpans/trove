@@ -118,14 +118,10 @@ type AttachmentViewerState = {
 };
 
 const cardColors = [
-  "#F4EFE5",
-  "#EAF0EE",
-  "#F6EAE3",
-  "#EBEDF4",
-  "#F3EDD9",
-  "#E8EFF3",
-  "#F4E9EE",
-  "#ECF0E4",
+  "#FFFFFF",
+  "#F8FAFC",
+  "#F9FAFB",
+  "#F3F4F6",
 ];
 
 const emptyClassForm = (): ClassForm => ({
@@ -440,7 +436,7 @@ function DashboardContent() {
     try {
       await fetchJson<ClassRecord>("/api/classes", {
         body: JSON.stringify({
-          color: getCardColor(classes.length),
+          color: "#004aad",
           name: classForm.name.trim(),
           session: classForm.session,
         }),
@@ -944,7 +940,7 @@ function DashboardContent() {
   }
 
   if (sessionQuery.isError) {
-    return <main className="flex min-h-screen items-center justify-center bg-[#faf9f6] p-6"><section className="max-w-md"><h1 className="mb-4 text-2xl font-semibold">Unable to open your workspace</h1><ErrorBanner message={getErrorMessage(sessionQuery.error)} /><ActionButton onClick={() => void sessionQuery.refetch()}>Try again</ActionButton></section></main>;
+    return <main className="flex min-h-screen items-center justify-center bg-[#f9fafb] p-6"><section className="max-w-md"><h1 className="mb-4 text-2xl font-semibold">Unable to open your workspace</h1><ErrorBanner message={getErrorMessage(sessionQuery.error)} /><ActionButton onClick={() => void sessionQuery.refetch()}>Try again</ActionButton></section></main>;
   }
 
   if (sessionQuery.data?.authenticated !== true) {
@@ -965,7 +961,7 @@ function DashboardContent() {
         <div className="mx-auto flex max-w-6xl items-center gap-3">
           {screen === "class" || screen === "student" ? <button aria-label="Open class students" className="rounded-md p-2" onClick={() => setDrawerOpen(true)} type="button"><IconMenu /></button> : null}
           <input
-            className="h-12 min-w-0 flex-1 rounded-md border border-[#eceff1] bg-white px-4 text-base shadow-[0_1px_4px_rgba(60,64,67,0.18)] outline-none transition placeholder:text-[#80868b] focus:border-[#4285f4]"
+            className="h-12 min-w-0 flex-1 rounded-md border border-[#eceff1] bg-white px-4 text-base shadow-[0_1px_4px_rgba(60,64,67,0.18)] outline-none transition placeholder:text-[#80868b] focus:border-[#004aad]"
             aria-label="Search workspace"
             onChange={(event) => { setSearch(event.target.value); if (screen !== "courses") setScreen("search"); }}
             placeholder={screen === "courses" ? "Search courses" : "Search your workspace…"}
@@ -1019,7 +1015,7 @@ function DashboardContent() {
 
         {screen === "classes" || screen === "search" ? (
           <>
-            {screen === "search" ? <h2 className="mb-4 text-lg font-semibold">Classes <span className="text-sm text-[#827d75]">{visibleClasses.length}</span></h2> : <BoardTitle
+            {screen === "search" ? <h2 className="mb-4 text-lg font-semibold">Classes <span className="text-sm text-[#6b7280]">{visibleClasses.length}</span></h2> : <BoardTitle
               subtitle={`${visibleClasses.length} classroom board${
                 visibleClasses.length === 1 ? "" : "s"
               }`}
@@ -1050,7 +1046,8 @@ function DashboardContent() {
                   }}
                   role="button"
                   style={{
-                    backgroundColor: getCardColor(index, classItem.color),
+                    backgroundColor: getCardColor(index),
+                    borderTop: `3px solid ${classItem.color || "#004aad"}`,
                   }}
                   tabIndex={0}
                 >
@@ -1087,14 +1084,14 @@ function DashboardContent() {
 
         {screen === "students" || screen === "search" ? (
           <div className={screen === "search" ? "mt-8" : ""}>
-            {screen === "students" ? <BoardTitle title="Students" subtitle={`${matchingStudents.length} students across your classes`} actions={<ActionButton onClick={createStudent}>Add student</ActionButton>} /> : <h2 className="mb-4 text-lg font-semibold">Students <span className="text-sm text-[#827d75]">{matchingStudents.length}</span></h2>}
+            {screen === "students" ? <BoardTitle title="Students" subtitle={`${matchingStudents.length} students across your classes`} actions={<ActionButton onClick={createStudent}>Add student</ActionButton>} /> : <h2 className="mb-4 text-lg font-semibold">Students <span className="text-sm text-[#6b7280]">{matchingStudents.length}</span></h2>}
             <KeepGrid emptyText={search.trim() ? "No students match your search." : "Add a student to start keeping observations."} emptyActionLabel="Add student" onEmptyAction={createStudent} items={matchingStudents} renderItem={(student) => <article className="dashboard-student-card" key={student.id}><button type="button" onClick={() => openStudent(student.id)}><span className="dashboard-student-avatar" aria-hidden="true">{student.name.slice(0, 1).toUpperCase()}</span><strong>{student.name}</strong><span>{classes.find((item) => item.id === student.classId)?.name || "Class unavailable"}</span>{student.rollNumber ? <span>Roll {student.rollNumber}</span> : null}</button><ActionButton onClick={() => openEditStudent(student)}>Edit student</ActionButton></article>} />
           </div>
         ) : null}
 
         {screen === "notes" || screen === "search" ? (
           <div className={screen === "search" ? "mt-8" : ""}>
-            {screen === "notes" ? <BoardTitle title="Notes" subtitle={`${matchingNotes.length} observations, ready when you need them`} actions={<ActionButton onClick={() => openCreateNote()}>Add note</ActionButton>} /> : <h2 className="mb-4 text-lg font-semibold">Notes <span className="text-sm text-[#827d75]">{matchingNotes.length}</span></h2>}
+            {screen === "notes" ? <BoardTitle title="Notes" subtitle={`${matchingNotes.length} observations, ready when you need them`} actions={<ActionButton onClick={() => openCreateNote()}>Add note</ActionButton>} /> : <h2 className="mb-4 text-lg font-semibold">Notes <span className="text-sm text-[#6b7280]">{matchingNotes.length}</span></h2>}
             <KeepGrid emptyText={search.trim() ? "No notes match your search." : "Create your first note for a student."} emptyActionLabel="Add note" onEmptyAction={() => openCreateNote()} items={matchingNotes} renderItem={(note, index) => <NoteCard key={note.id} color={getCardColor(index)} note={note} onAttach={handleAttachment} onOpen={() => openNote(note)} onShare={() => setShareDialogNoteId(note.id)} onViewAttachment={(attachment, attachmentIndex) => setAttachmentViewer({ attachment, index: attachmentIndex })} studentName={students.find((student) => student.id === note.studentId)?.name} />} />
           </div>
         ) : null}
@@ -1233,7 +1230,7 @@ function DashboardContent() {
 
       {screen !== "courses" ? <button
         aria-label="Create"
-        className="fixed bottom-7 right-7 z-30 grid h-16 w-16 cursor-pointer place-items-center rounded-full bg-[#1a73e8] text-white shadow-[0_10px_30px_rgba(26,115,232,0.35)] transition duration-150 hover:scale-105 hover:bg-[#1558b0] hover:shadow-[0_14px_36px_rgba(26,115,232,0.42)] active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#1a73e8]"
+        className="fixed bottom-7 right-7 z-30 grid h-16 w-16 cursor-pointer place-items-center rounded-full bg-[#004aad] text-white shadow-[0_10px_30px_rgba(0,74,173,0.35)] transition duration-150 hover:scale-105 hover:bg-[#003b8a] hover:shadow-[0_14px_36px_rgba(0,74,173,0.42)] active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#004aad]"
         onClick={() => {
           if (screen === "overview" || screen === "classes") {
             setFormError(null);
@@ -1465,7 +1462,7 @@ function DashboardContent() {
                     <button
                       className={`shrink-0 cursor-pointer rounded-full border px-3 py-2 text-sm font-semibold transition ${
                         selected
-                          ? "border-[#202124] bg-[#202124] text-white"
+                          ? "border-[#004aad] bg-[#004aad] text-white"
                           : "border-[#dfe3e7] bg-white text-[#3c4043] hover:bg-[#f1f3f4]"
                       }`}
                       key={student.id}
@@ -1613,7 +1610,7 @@ function BoardTitle({
         {onBack ? (
           <button
             aria-label="Back"
-            className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-md text-[#3c4043] transition hover:bg-[#f1f3f4] active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1a73e8]"
+            className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-md text-[#3c4043] transition hover:bg-[#f1f3f4] active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#004aad]"
             onClick={onBack}
             type="button"
           >
@@ -1651,7 +1648,7 @@ function KeepGrid<T>({
         <p className="max-w-sm text-sm leading-6">{emptyText}</p>
         {emptyActionLabel && onEmptyAction ? (
           <button
-            className="mt-4 inline-flex h-10 cursor-pointer items-center justify-center rounded-md bg-[#202124] px-4 text-sm font-semibold text-white transition hover:bg-black active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1a73e8]"
+            className="mt-4 inline-flex h-10 cursor-pointer items-center justify-center rounded-md bg-[#004aad] px-4 text-sm font-semibold text-white transition hover:bg-[#003b8a] active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#004aad]"
             onClick={onEmptyAction}
             type="button"
           >
@@ -1693,7 +1690,7 @@ function StudentStrip({
       <div className="mb-5 rounded-lg border border-dashed border-[#dfe3e7] bg-[#f8fafd] px-5 py-4">
         <p className="text-sm text-[#6f7478]">No students in this class yet.</p>
         <button
-          className="mt-3 inline-flex h-10 cursor-pointer items-center justify-center rounded-md bg-[#202124] px-4 text-sm font-semibold text-white transition hover:bg-black active:scale-[0.98]"
+          className="mt-3 inline-flex h-10 cursor-pointer items-center justify-center rounded-md bg-[#004aad] px-4 text-sm font-semibold text-white transition hover:bg-[#003b8a] active:scale-[0.98]"
           onClick={onNewStudent}
           type="button"
         >
@@ -1714,7 +1711,7 @@ function StudentStrip({
         </div>
         <div className="flex flex-wrap gap-2">
           <select
-            className="h-9 cursor-pointer rounded-md border border-[#dfe3e7] bg-white px-2 text-sm font-semibold text-[#303134] outline-none transition hover:bg-[#f8f9fa] focus:border-[#1a73e8]"
+            className="h-9 cursor-pointer rounded-md border border-[#dfe3e7] bg-white px-2 text-sm font-semibold text-[#303134] outline-none transition hover:bg-[#f8f9fa] focus:border-[#004aad]"
             onChange={(event) =>
               onSortChange(event.target.value as StudentSortMode)
             }
@@ -1759,7 +1756,7 @@ function StudentStrip({
             <button
               className={
                 viewMode === "list"
-                  ? "min-w-0 flex-1 cursor-pointer text-left text-sm font-semibold text-[#303134] transition hover:text-[#1a73e8]"
+                  ? "min-w-0 flex-1 cursor-pointer text-left text-sm font-semibold text-[#303134] transition hover:text-[#004aad]"
                   : "cursor-pointer px-3 py-2 text-sm font-semibold text-[#303134] transition hover:bg-[#f8f9fa] active:scale-[0.98]"
               }
               onClick={() => onOpenStudent(student.id)}
@@ -1804,7 +1801,7 @@ function SegmentButton({
     <button
       className={`h-9 cursor-pointer rounded-md border px-3 text-sm font-semibold transition active:scale-[0.98] ${
         active
-          ? "border-[#202124] bg-[#202124] text-white"
+          ? "border-[#004aad] bg-[#004aad] text-white"
           : "border-[#dfe3e7] bg-white text-[#303134] hover:bg-[#f8f9fa]"
       }`}
       onClick={onClick}
@@ -2131,7 +2128,7 @@ function NoteModal({
           />
           <div className="flex flex-wrap gap-2">
             <button
-              className="h-11 cursor-pointer rounded-md bg-[#202124] px-4 text-sm font-semibold text-white transition hover:bg-black active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+              className="h-11 cursor-pointer rounded-md bg-[#004aad] px-4 text-sm font-semibold text-white transition hover:bg-[#003b8a] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
               disabled={submitting}
               type="submit"
             >
@@ -2227,7 +2224,7 @@ function AttachmentRow({
     <div className="rounded-md border border-[#dfe3e7] p-3">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <button
-          className="min-w-0 flex-1 cursor-pointer truncate text-left text-sm font-semibold text-[#202124] underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1a73e8]"
+          className="min-w-0 flex-1 cursor-pointer truncate text-left text-sm font-semibold text-[#202124] underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#004aad]"
           onClick={() => onView(attachment, index)}
           type="button"
         >
@@ -2250,7 +2247,7 @@ function AttachmentRow({
       </p>
       {attachment.fileType.startsWith("image/") ? (
         <button
-          className="mt-3 block cursor-pointer rounded-md border border-[#eceff1] bg-[#f8fafd] p-2 transition hover:border-[#1a73e8]"
+          className="mt-3 block cursor-pointer rounded-md border border-[#eceff1] bg-[#f8fafd] p-2 transition hover:border-[#004aad]"
           onClick={() => onView(attachment, index)}
           type="button"
         >
@@ -2331,7 +2328,7 @@ function AttachmentViewer({
             Open in new tab
           </a>
           <a
-            className="inline-flex h-10 items-center justify-center rounded-md bg-[#1a73e8] px-4 text-sm font-semibold text-white transition hover:bg-[#1558b0]"
+            className="inline-flex h-10 items-center justify-center rounded-md bg-[#004aad] px-4 text-sm font-semibold text-white transition hover:bg-[#003b8a]"
             download
             href={attachment.fileUrl}
           >
@@ -2500,7 +2497,7 @@ function ActionButton({
 }) {
   return (
     <button
-      className={`h-9 cursor-pointer rounded-md border px-3 text-sm font-semibold transition active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1a73e8] ${
+      className={`h-9 cursor-pointer rounded-md border px-3 text-sm font-semibold transition active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#004aad] ${
         danger
           ? "border-[#f2b8b5] text-[#a50e0e] hover:bg-[#fce8e6]"
           : "border-[#dfe3e7] text-[#303134] hover:bg-[#f8f9fa]"
@@ -2602,7 +2599,7 @@ function CreateForm({
       {error ? <ErrorBanner message={error} /> : null}
       {children}
       <button
-        className="mt-1 h-11 cursor-pointer rounded-md bg-[#202124] px-4 text-sm font-semibold text-white transition hover:bg-black active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+        className="mt-1 h-11 cursor-pointer rounded-md bg-[#004aad] px-4 text-sm font-semibold text-white transition hover:bg-[#003b8a] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
         disabled={submitting}
         type="submit"
       >
@@ -2702,7 +2699,7 @@ function PendingAttachmentPicker({
                 </button>
               </div>
               <input
-                className="mt-3 min-h-10 w-full rounded-md border border-[#dfe3e7] px-3 text-sm outline-none transition placeholder:text-[#80868b] focus:border-[#4285f4]"
+                className="mt-3 min-h-10 w-full rounded-md border border-[#dfe3e7] px-3 text-sm outline-none transition placeholder:text-[#80868b] focus:border-[#004aad]"
                 onChange={(event) =>
                   onCaptionChange(attachment.id, event.target.value)
                 }
@@ -2749,7 +2746,7 @@ function ProfileMenu({
         onClick={onToggle}
         type="button"
       >
-        <span className="grid h-8 w-8 place-items-center rounded-full bg-[#e8f0fe] text-xs font-bold text-[#1967d2]">
+        <span className="grid h-8 w-8 place-items-center rounded-full bg-[#e8f0fe] text-xs font-bold text-[#004aad]">
           {initials}
         </span>
         <span className="hidden max-w-36 truncate sm:block">{email}</span>
@@ -2757,7 +2754,7 @@ function ProfileMenu({
       {open ? (
         <div className="absolute right-0 top-12 z-[60] w-72 rounded-lg border border-[#dfe3e7] bg-white p-2 shadow-[0_12px_32px_rgba(60,64,67,0.2)]">
           <div className="flex items-center gap-3 rounded-md px-3 py-3">
-            <span className="grid h-10 w-10 place-items-center rounded-full bg-[#e8f0fe] text-sm font-bold text-[#1967d2]">
+            <span className="grid h-10 w-10 place-items-center rounded-full bg-[#e8f0fe] text-sm font-bold text-[#004aad]">
               {initials}
             </span>
             <div className="min-w-0">
@@ -2887,7 +2884,7 @@ function ShareDialog({
               </>
             ) : (
               <button
-                className="h-10 cursor-pointer rounded-md bg-[#1a73e8] px-4 text-sm font-semibold text-white transition hover:bg-[#1558b0] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+                className="h-10 cursor-pointer rounded-md bg-[#004aad] px-4 text-sm font-semibold text-white transition hover:bg-[#003b8a] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
                 disabled={submitting}
                 onClick={() => onCreateShare(note.id)}
                 type="button"
@@ -2965,7 +2962,7 @@ function AttachmentCaptionDialog({
           <div className="flex justify-end gap-2">
             <ActionButton onClick={onClose}>Cancel</ActionButton>
             <button
-              className="h-10 cursor-pointer rounded-md bg-[#1a73e8] px-4 text-sm font-semibold text-white transition hover:bg-[#1558b0] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+              className="h-10 cursor-pointer rounded-md bg-[#004aad] px-4 text-sm font-semibold text-white transition hover:bg-[#003b8a] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
               disabled={submitting}
               type="submit"
             >
@@ -3079,7 +3076,7 @@ function UnauthorizedDashboard() {
           Log in or register before opening your notes dashboard.
         </p>
         <Link
-          className="mt-6 inline-flex h-11 items-center justify-center rounded-md bg-[#202124] px-5 text-sm font-semibold text-white"
+          className="mt-6 inline-flex h-11 items-center justify-center rounded-md bg-[#004aad] px-5 text-sm font-semibold text-white"
           href="/"
         >
           Go to sign in
@@ -3093,7 +3090,7 @@ function DashboardLoading() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-white px-5 text-[#202124]">
       <section className="text-center">
-        <div className="mx-auto h-10 w-10 animate-spin rounded-full border-2 border-[#dfe3e7] border-t-[#4285f4]" />
+        <div className="mx-auto h-10 w-10 animate-spin rounded-full border-2 border-[#dfe3e7] border-t-[#004aad]" />
         <p className="mt-5 text-sm font-semibold text-[#5f6368]">
           Loading dashboard
         </p>
@@ -3105,7 +3102,7 @@ function DashboardLoading() {
 function LoadingBar() {
   return (
     <div className="mb-4 h-1 overflow-hidden rounded-full bg-[#eceff1]">
-      <div className="h-full w-1/3 animate-pulse rounded-full bg-[#4285f4]" />
+      <div className="h-full w-1/3 animate-pulse rounded-full bg-[#004aad]" />
     </div>
   );
 }
@@ -3330,7 +3327,7 @@ function getErrorMessage(error: unknown) {
 }
 
 const inputClass =
-  "min-h-12 w-full rounded-md border border-[#dfe3e7] bg-white px-4 text-base text-[#202124] outline-none transition placeholder:text-[#80868b] focus:border-[#4285f4]";
+  "min-h-12 w-full rounded-md border border-[#dfe3e7] bg-white px-4 text-base text-[#202124] outline-none transition placeholder:text-[#80868b] focus:border-[#004aad]";
 
 export default function DashboardClient() {
   const [queryClient] = useState(() => new QueryClient());

@@ -27,8 +27,10 @@ Search and navigation state are local to the mounted dashboard. Refreshing the
 page returns to Overview. Pins retain their existing in-memory behavior.
 
 The visual direction takes inspiration from Atlas's sidebar and workspace
-layout, with Trove branding, warm neutral surfaces, restrained accent colors,
-and compact controls. No external assets or additional dependencies are needed.
+layout, with Trove branding, white and light gray surfaces, the existing brand
+blue (`#004aad`) for primary actions and navigation, and compact controls.
+Custom class and course colors remain small record accents. No external assets
+or additional dependencies are needed.
 
 Use the repository's isolated `Dockerfile.checks` verification workflow. Without
 Docker, the existing workspace tools can run:

@@ -11,14 +11,14 @@ type CourseRecord = {
 
 type CourseDraft = Pick<CourseRecord, "name" | "color">;
 
-const emptyDraft: CourseDraft = { name: "", color: "#D97757" };
-const courseColors = ["#D97757", "#658B70", "#6685B1", "#9474AD", "#B38946"];
+const emptyDraft: CourseDraft = { name: "", color: "#004aad" };
+const courseColors = ["#004aad", "#658B70", "#6685B1", "#9474AD", "#B38946"];
 const inputClass =
-  "w-full rounded-xl border border-[#e4e0d9] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#bd6143] focus:ring-2 focus:ring-[#bd6143]/15 disabled:opacity-60";
+  "w-full rounded-xl border border-[#e5e7eb] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#004aad] focus:ring-2 focus:ring-[#004aad]/15 disabled:opacity-60";
 const secondaryButtonClass =
-  "rounded-xl border border-[#e4e0d9] bg-white px-4 py-2.5 text-sm font-medium text-[#5e5b55] transition hover:bg-[#f5f3ee] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#bd6143] disabled:cursor-not-allowed disabled:opacity-50";
+  "rounded-xl border border-[#e5e7eb] bg-white px-4 py-2.5 text-sm font-medium text-[#4b5563] transition hover:bg-[#f3f4f6] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#004aad] disabled:cursor-not-allowed disabled:opacity-50";
 const primaryButtonClass =
-  "rounded-xl bg-[#b85e42] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#9c4c34] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#bd6143] disabled:cursor-not-allowed disabled:opacity-50";
+  "rounded-xl bg-[#004aad] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#003b8a] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#004aad] disabled:cursor-not-allowed disabled:opacity-50";
 
 async function requestCourses<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
@@ -133,9 +133,9 @@ export default function CoursesPanel({ search = "" }: { search?: string }) {
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="mb-1 text-xs font-semibold uppercase tracking-[0.16em] text-[#8d8578]">Your workspace</p>
-          <h1 className="text-3xl font-semibold tracking-tight text-[#2e2b26]">Courses</h1>
-          <p className="mt-2 text-sm text-[#777168]">Keep the subjects you teach together in one place.</p>
+          <p className="mb-1 text-xs font-semibold uppercase tracking-[0.16em] text-[#6b7280]">Your workspace</p>
+          <h1 className="text-3xl font-semibold tracking-tight text-[#111827]">Courses</h1>
+          <p className="mt-2 text-sm text-[#6b7280]">Keep the subjects you teach together in one place.</p>
         </div>
         <button
           className={primaryButtonClass}
@@ -154,17 +154,17 @@ export default function CoursesPanel({ search = "" }: { search?: string }) {
       {formOpen ? (
         <form
           aria-labelledby="course-form-title"
-          className="rounded-2xl border border-[#e4e0d9] bg-white p-5 sm:p-6"
+          className="rounded-2xl border border-[#e5e7eb] bg-white p-5 sm:p-6"
           id="course-form"
           onSubmit={handleSubmit}
         >
-          <h2 className="text-lg font-semibold text-[#2e2b26]" id="course-form-title">
+          <h2 className="text-lg font-semibold text-[#111827]" id="course-form-title">
             {editingId === null ? "Add a course" : "Edit course"}
           </h2>
-          <p className="mt-1 text-sm text-[#777168]">Choose a name and color for this course.</p>
+          <p className="mt-1 text-sm text-[#6b7280]">Choose a name and color for this course.</p>
           <fieldset className="mt-5 space-y-4" disabled={saveCourse.isPending}>
             <div className="max-w-lg">
-              <label className="mb-1.5 block text-sm font-medium text-[#514b43]" htmlFor="course-name">Course name</label>
+              <label className="mb-1.5 block text-sm font-medium text-[#374151]" htmlFor="course-name">Course name</label>
               <input
                 aria-describedby="course-name-help course-form-error"
                 aria-invalid={Boolean(validationError || saveCourse.error)}
@@ -179,16 +179,16 @@ export default function CoursesPanel({ search = "" }: { search?: string }) {
                 required
                 value={draft.name}
               />
-              <p className="mt-1 text-xs text-[#8d8578]" id="course-name-help">2–30 characters</p>
+              <p className="mt-1 text-xs text-[#6b7280]" id="course-name-help">2–30 characters</p>
             </div>
             <div>
-              <label className="mb-2 block text-sm font-medium text-[#514b43]" htmlFor="course-color">Course color</label>
+              <label className="mb-2 block text-sm font-medium text-[#374151]" htmlFor="course-color">Course color</label>
               <div className="flex flex-wrap items-center gap-2">
                 {courseColors.map((color) => (
                   <button
                     aria-label={`Choose ${color} color`}
                     aria-pressed={draft.color.toLowerCase() === color.toLowerCase()}
-                    className="h-8 w-8 rounded-full border-2 border-white outline-1 outline-offset-2 outline-transparent aria-pressed:outline-[#514b43] focus-visible:outline-2 focus-visible:outline-[#bd6143]"
+                    className="h-8 w-8 rounded-full border-2 border-white outline-1 outline-offset-2 outline-transparent aria-pressed:outline-[#374151] focus-visible:outline-2 focus-visible:outline-[#004aad]"
                     key={color}
                     onClick={() => setDraft((current) => ({ ...current, color }))}
                     style={{ backgroundColor: color }}
@@ -196,7 +196,7 @@ export default function CoursesPanel({ search = "" }: { search?: string }) {
                   />
                 ))}
                 <input
-                  className="ml-2 h-9 w-12 cursor-pointer rounded border border-[#e4e0d9] bg-white p-1 focus-visible:outline-2 focus-visible:outline-[#bd6143]"
+                  className="ml-2 h-9 w-12 cursor-pointer rounded border border-[#e5e7eb] bg-white p-1 focus-visible:outline-2 focus-visible:outline-[#004aad]"
                   id="course-color"
                   onChange={(event) => setDraft((current) => ({ ...current, color: event.target.value }))}
                   type="color"
@@ -218,18 +218,18 @@ export default function CoursesPanel({ search = "" }: { search?: string }) {
       ) : null}
 
       {coursesQuery.isPending ? (
-        <div aria-live="polite" className="rounded-2xl border border-[#e4e0d9] bg-white p-8 text-sm text-[#777168]" role="status">Loading courses…</div>
+        <div aria-live="polite" className="rounded-2xl border border-[#e5e7eb] bg-white p-8 text-sm text-[#6b7280]" role="status">Loading courses…</div>
       ) : coursesQuery.isError ? (
-        <div className="rounded-2xl border border-[#e4e0d9] bg-white p-6">
+        <div className="rounded-2xl border border-[#e5e7eb] bg-white p-6">
           <p className="text-sm text-[#a4402f]" role="alert">{errorMessage(coursesQuery.error)}</p>
           <button className={`${secondaryButtonClass} mt-4`} disabled={coursesQuery.isFetching} onClick={() => void coursesQuery.refetch()} type="button">
             {coursesQuery.isFetching ? "Retrying…" : "Retry"}
           </button>
         </div>
       ) : courses.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-[#dcd6cb] bg-white/60 p-10 text-center">
-          <h2 className="text-lg font-semibold text-[#514b43]">{search.trim() ? "No courses found" : "Your courses start here"}</h2>
-          <p className="mx-auto mt-2 max-w-sm text-sm text-[#777168]">
+        <div className="rounded-2xl border border-dashed border-[#d1d5db] bg-white/60 p-10 text-center">
+          <h2 className="text-lg font-semibold text-[#374151]">{search.trim() ? "No courses found" : "Your courses start here"}</h2>
+          <p className="mx-auto mt-2 max-w-sm text-sm text-[#6b7280]">
             {search.trim() ? "Try a different course name." : "Add the subjects you teach, such as Mathematics, Science, or English."}
           </p>
           {!search.trim() ? <button className={`${primaryButtonClass} mt-5`} disabled={saveCourse.isPending} onClick={() => openForm()} type="button">Add your first course</button> : null}
@@ -237,15 +237,15 @@ export default function CoursesPanel({ search = "" }: { search?: string }) {
       ) : (
         <ul aria-label="Courses" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {courses.map((course) => (
-            <li className="flex min-w-0 items-center gap-4 rounded-2xl border border-[#e4e0d9] bg-white p-5" key={course.id}>
+            <li className="flex min-w-0 items-center gap-4 rounded-2xl border border-[#e5e7eb] bg-white p-5" key={course.id}>
               <span aria-hidden="true" className="h-11 w-11 shrink-0 rounded-xl border border-black/5" style={{ backgroundColor: course.color }} />
               <div className="min-w-0 flex-1">
-                <h2 className="break-words text-base font-semibold text-[#38332c]">{course.name}</h2>
-                <p className="mt-1 text-xs text-[#8d8578]">Course</p>
+                <h2 className="break-words text-base font-semibold text-[#1f2937]">{course.name}</h2>
+                <p className="mt-1 text-xs text-[#6b7280]">Course</p>
               </div>
               <button
                 aria-label={`Edit ${course.name}`}
-                className="rounded-lg px-2 py-1 text-sm font-medium text-[#8b4a35] hover:bg-[#faf0e9] focus-visible:outline-2 focus-visible:outline-[#bd6143] disabled:opacity-50"
+                className="rounded-lg px-2 py-1 text-sm font-medium text-[#004aad] hover:bg-[#eaf2ff] focus-visible:outline-2 focus-visible:outline-[#004aad] disabled:opacity-50"
                 disabled={saveCourse.isPending}
                 onClick={() => openForm(course)}
                 type="button"
